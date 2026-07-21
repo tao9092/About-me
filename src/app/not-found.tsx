@@ -1,0 +1,1 @@
+import{LinkButton}from"@/components/ui";export default function NotFound(){return <main className="state-page"><p className="eyebrow">404</p><h1>This achievement is not here.</h1><p>It may be private, archived, or the link may be incorrect.</p><LinkButton href="/">Return home</LinkButton></main>}

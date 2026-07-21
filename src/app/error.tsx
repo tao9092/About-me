@@ -1,0 +1,1 @@
+"use client";import{Button}from"@/components/ui";export default function Error({reset}:{reset:()=>void}){return <main className="state-page"><p className="eyebrow">Something went wrong</p><h1>We could not load this page.</h1><p>Your data is safe. Try loading it again.</p><Button onClick={reset}>Try again</Button></main>}

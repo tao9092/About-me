@@ -1,0 +1,6 @@
+"use client";
+import { useActionState, useEffect, useState } from "react";
+import { uploadFileAction } from "@/app/actions/files";
+import { formatBytes } from "@/lib/utils";
+import { toast } from "sonner";
+export function UploadForm(){const[state,action,pending]=useActionState(uploadFileAction,null);const[file,setFile]=useState<File|null>(null);useEffect(()=>{if(state?.success)toast.success(state.success);if(state?.error)toast.error(state.error)},[state]);return <form action={action} className="upload-form"><label className="drop-zone"><input type="file" name="file" required onChange={event=>setFile(event.target.files?.[0]??null)}/><strong>{file?file.name:<>Drop a file here or choose from device <em aria-label="required">*</em></>}</strong><span>{file?`${file.type} · ${formatBytes(file.size)}`:"Images, PDF, Office, ZIP or video — validated again on the server"}</span></label><label>Visibility <em aria-label="required">*</em><select name="visibility" defaultValue="private" required><option value="private">Private</option><option value="protected">Protected</option><option value="public">Public</option></select></label><button className="button" disabled={pending}>{pending?"Uploading…":"Upload as draft"}</button>{state?.error&&<p className="form-error">{state.error}</p>}</form>}

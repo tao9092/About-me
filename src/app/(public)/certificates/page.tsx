@@ -1,0 +1,1 @@
+import{CollectionPage}from"@/components/collection-page";export default function Page({searchParams}:{searchParams:Promise<{q?:string}>}){return <CollectionPage table="certificates" searchParams={searchParams}/>}

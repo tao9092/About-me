@@ -1,0 +1,1 @@
+import{PageHeader,EmptyState}from"@/components/ui";export default function Page(){return <><PageHeader eyebrow="Resume" title="Current resume" description="The latest published version will be available to preview or download here."/><EmptyState title="No public resume yet" description="The owner has not published a resume version."/></>}

@@ -1,0 +1,10 @@
+import { entityTables, listContent, type EntityTable } from "@/lib/content";
+import { Badge, EmptyState } from "@/components/ui";
+import { permanentlyDeleteAction, setStatusAction } from "@/app/actions/content";
+type ArchivedRow = Record<string, unknown> & { _table: EntityTable };
+export default async function Page({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const q = (await searchParams).q;
+  const groups = await Promise.all(entityTables.map(async table => ({ table, rows: await listContent(table, { admin: true, archived: true, q }) })));
+  const all: ArchivedRow[] = groups.flatMap(group => group.rows.map(row => ({ ...row, _table: group.table })));
+  return <><header className="admin-header"><div><p className="eyebrow">Hidden records</p><h1>Archive</h1><p>Restore records to Draft or permanently delete them after explicit confirmation.</p></div></header><form className="admin-search"><input name="q" defaultValue={q} placeholder="Search archive…"/><button className="button button-secondary">Search</button></form>{all.length===0?<EmptyState title="Archive is empty" description="Archived records will appear here, safely hidden from public lists."/>:<div className="archive-grid">{all.map(row=><article className="content-card" key={String(row.id)}><Badge>{String(row._table)}</Badge><h2>{String(row.title_en)}</h2><p>Archived {String(row.archived_at??"").slice(0,10)}</p><div className="archive-actions"><form action={setStatusAction}><input type="hidden" name="entity" value={row._table}/><input type="hidden" name="id" value={String(row.id)}/><button className="button button-secondary" name="intent" value="restore">Restore to draft</button></form><details><summary>Delete permanently</summary><form action={permanentlyDeleteAction}><input type="hidden" name="entity" value={row._table}/><input type="hidden" name="id" value={String(row.id)}/><label>Type DELETE to confirm<input name="confirmation" required pattern="DELETE"/></label><button className="button button-danger">Delete forever</button></form></details></div></article>)}</div>}</>;
+}

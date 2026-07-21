@@ -1,0 +1,18 @@
+project_id = "personal-achievement-hub"
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+[db]
+port = 54322
+major_version = 17
+[studio]
+enabled = true
+port = 54323
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/**"]
+[storage]
+enabled = true
+file_size_limit = "25MiB"
