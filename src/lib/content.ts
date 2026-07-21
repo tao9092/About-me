@@ -52,5 +52,13 @@ export async function getPublicContent(table:EntityTable,slug:string){
   const supabase=await createClient();
   const{data,error}=await supabase.from(table).select("*").eq("slug",slug).eq("status","published").eq("visibility","public").maybeSingle();
   if(error)throw new Error(error.message);
-  return data as Record<string,unknown>|null;
+  if (!data) return null;
+  const row = data as Record<string, unknown>;
+  if (table === "certificates" && typeof row.image_file_id === "string") {
+    const { data: file } = await supabase.from("files").select("bucket,storage_path").eq("id", row.image_file_id).eq("status", "published").eq("visibility", "public").maybeSingle();
+    if (file?.bucket === "public-files" && file.storage_path) {
+      row.certificate_image_url = supabase.storage.from("public-files").getPublicUrl(file.storage_path).data.publicUrl;
+    }
+  }
+  return row;
 }

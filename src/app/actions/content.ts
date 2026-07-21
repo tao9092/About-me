@@ -159,6 +159,20 @@ export async function setStatusAction(formData: FormData) {
     })
     .eq("id", id);
   if (error) throw error;
+  if (entity === "certificates") {
+    const { data: certificate } = await supabase
+      .from("certificates")
+      .select("image_file_id,visibility")
+      .eq("id", id)
+      .maybeSingle();
+    if (certificate?.image_file_id) {
+      const { error: fileError } = await supabase
+        .from("files")
+        .update({ status, visibility: certificate.visibility, archived_at: status === "archived" ? now : null, updated_at: now })
+        .eq("id", certificate.image_file_id);
+      if (fileError) throw fileError;
+    }
+  }
   revalidatePath("/admin", "layout");
 }
 

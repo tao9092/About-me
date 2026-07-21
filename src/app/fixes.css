@@ -26,6 +26,15 @@
 .certificate-image-field input[type="file"]::file-selector-button { min-height:32px; margin-right:12px; padding:6px 12px; border:0; border-radius:8px; background:var(--primary); color:#fff; font-weight:700; cursor:pointer; }
 .certificate-image-preview { position:relative; width:min(100%,680px); aspect-ratio:16/10; margin-top:16px; overflow:hidden; border:1px solid var(--border); border-radius:14px; background:color-mix(in srgb,var(--surface) 88%,#000); }
 .certificate-image-preview img { object-fit:contain; }
+.certificate-public-preview { padding:65px 0; border-bottom:1px solid var(--liquid-line); }
+.certificate-public-preview>button { position:relative; display:block; width:min(100%,980px); margin:22px auto 0; padding:0; overflow:hidden; border:1px solid var(--liquid-line); border-radius:10px; background:#081313; cursor:zoom-in; }
+.certificate-public-preview img { display:block; width:100%; max-height:720px; object-fit:contain; }
+.certificate-public-preview button span { position:absolute; right:14px; bottom:14px; display:flex; align-items:center; gap:8px; padding:9px 12px; border:1px solid rgba(255,255,255,.16); border-radius:7px; background:rgba(4,13,13,.78); backdrop-filter:blur(10px); color:#fff; font-size:12px; }
+.certificate-public-preview button svg { width:15px; }
+.certificate-lightbox { position:fixed; z-index:1000; inset:0; display:grid; place-items:center; padding:70px 24px 24px; background:rgba(0,7,8,.94); backdrop-filter:blur(14px); cursor:zoom-out; }
+.certificate-lightbox>img { max-width:100%; max-height:calc(100vh - 100px); object-fit:contain; border-radius:8px; box-shadow:0 30px 80px rgba(0,0,0,.55); cursor:default; }
+.certificate-lightbox-close { position:absolute; top:18px; right:18px; width:46px; height:46px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.2); border-radius:50%; background:rgba(255,255,255,.08); color:#fff; cursor:pointer; }
+.certificate-lightbox-close svg { width:22px; }
 .detail-body-direct { display:block; max-width:820px; margin-left:auto; }
 .optional-panel { border:1px solid var(--border); border-radius:19px; background:var(--surface); overflow:hidden; }
 .optional-panel>summary { min-height:82px; padding:18px 25px; display:flex; align-items:center; justify-content:space-between; gap:20px; cursor:pointer; list-style:none; }

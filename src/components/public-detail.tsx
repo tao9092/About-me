@@ -10,6 +10,7 @@ import { notFound } from "next/navigation";
 import { getPublicContent, type EntityTable } from "@/lib/content";
 import { sanitizeRichText } from "@/lib/sanitize";
 import { Badge } from "@/components/ui";
+import { CertificatePreview } from "@/components/certificate-preview";
 
 const copy = {
   competitions: { label: "Competition", back: "/competitions" },
@@ -98,6 +99,9 @@ export async function PublicDetail({
             ))}
           </div>
         </section>
+      )}
+      {table === "certificates" && typeof row.certificate_image_url === "string" && (
+        <CertificatePreview src={row.certificate_image_url} alt={String(row.title_en)} />
       )}
       {(content || links.length > 0) && <section className="detail-body detail-body-direct">
         <div>
