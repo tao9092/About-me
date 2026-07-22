@@ -52,9 +52,10 @@ export function ParticleSphere({
       time = 0,
       visible = true,
       alive = true;
+    let lightTheme = !document.documentElement.classList.contains("dark");
     const pointer = { x: -9999, y: -9999, active: false, power: 0 };
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const counts = { high: 1050, medium: 480, low: 250 };
+    const counts = { high: 1800, medium: 720, low: 360 };
     function rebuild() {
       const r = container.getBoundingClientRect();
       w = Math.max(1, r.width);
@@ -66,9 +67,10 @@ export function ParticleSphere({
       surface.style.height = `${h}px`;
       context.setTransform(dpr, 0, 0, dpr, 0, 0);
       const radius = Math.min(w, h) * 0.4,
+        activeDensity = lightTheme ? "high" : density,
         count = Math.min(
-          counts[density],
-          Math.round((w * h) / (density === "high" ? 180 : 260)),
+          counts[activeDensity],
+          Math.round((w * h) / (activeDensity === "high" ? 115 : 230)),
         ),
         golden = Math.PI * (3 - Math.sqrt(5));
       points = Array.from({ length: count }, (_, i) => {
@@ -136,7 +138,9 @@ export function ParticleSphere({
                   Math.floor(p.energy * (palette.length - 1)),
                 )
               : p.color;
-        const col = palette[colorIndex],
+        const col = lightTheme
+            ? ([24, 44, 68] as const)
+            : palette[colorIndex],
           alpha = Math.min(0.96, 0.3 + (rz + 1) * 0.25 + p.energy * 0.35),
           radius = p.size * (0.75 + (rz + 1) * 0.23 + speed * 0.65);
         context.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},${alpha})`;
@@ -196,6 +200,11 @@ export function ParticleSphere({
     container.addEventListener("pointermove", move);
     container.addEventListener("pointerdown", burst);
     container.addEventListener("pointerleave", leave);
+    const onThemeChange = () => {
+      lightTheme = !document.documentElement.classList.contains("dark");
+      rebuild();
+    };
+    window.addEventListener("themechange", onThemeChange);
     rebuild();
     if (!reduce) raf = requestAnimationFrame(loop);
     return () => {
@@ -206,6 +215,7 @@ export function ParticleSphere({
       container.removeEventListener("pointermove", move);
       container.removeEventListener("pointerdown", burst);
       container.removeEventListener("pointerleave", leave);
+      window.removeEventListener("themechange", onThemeChange);
     };
   }, [density]);
   return (

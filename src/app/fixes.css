@@ -5,6 +5,172 @@
 .contact-orb { pointer-events:auto; }
 .contact-orb .particle-sphere { position:absolute; inset:0; width:100%; height:100%; aspect-ratio:auto; }
 
+/* The Auros shell owns its own palette, so it needs an explicit light theme. */
+html:not(.dark) {
+  --abyss:#f5f7f8;
+  --liquid:#ffffff;
+  --liquid-raised:#e9eef1;
+  --liquid-line:#c8d2d7;
+  --silver:#58676f;
+  --mist:#172b35;
+  --phosphor:#563b64;
+  --aurora:linear-gradient(110deg,#173e49 0%,#245b66 48%,#493d62 100%);
+}
+html, body, .auros-nav, .auros-home, .public-main, .signal-section,
+.systems-section, .evidence-section, .capabilities-section, .auros-contact,
+.site-footer { transition:background-color .45s ease,color .35s ease,border-color .35s ease; }
+html:not(.dark) .auros-brand,
+html:not(.dark) .auros-nav .nav-links a,
+html:not(.dark) .auros-hero h1,
+html:not(.dark) .auros-section-head h2,
+html:not(.dark) .auros-contact h2,
+html:not(.dark) .auros-project-info h3,
+html:not(.dark) .auros-evidence-row strong,
+html:not(.dark) .capability-cloud a,
+html:not(.dark) body:has(.auros-nav) .content-card,
+html:not(.dark) body:has(.auros-nav) .page-header h1 { color:var(--mist)!important; }
+html:not(.dark) .brand-mark i { background:var(--mist); }
+html:not(.dark) .auros-hero {
+  background:radial-gradient(circle at 70% 68%,rgba(71,112,130,.14),transparent 28%),radial-gradient(circle at 20% 25%,rgba(137,156,166,.16),transparent 35%),var(--abyss);
+}
+html:not(.dark) .project-orb-canvas {
+  background:radial-gradient(circle at 50% 50%,rgba(79,112,128,.13),transparent 55%),#eef2f4;
+}
+html:not(.dark) .particle-sphere:before {
+  background:radial-gradient(circle,rgba(69,111,132,.18),rgba(116,91,155,.08) 46%,transparent 72%);
+}
+html:not(.dark) .orb-ring { border-color:rgba(40,69,82,.2); }
+html:not(.dark) .scan-line { background:linear-gradient(90deg,transparent,rgba(40,69,82,.28),transparent); }
+html:not(.dark) .auros-nav .nav-cta,
+html:not(.dark) .aurora-button {
+  color:#fff!important;
+  text-shadow:0 1px 1px rgba(0,0,0,.24);
+}
+html:not(.dark) .auros-nav .nav-cta svg,
+html:not(.dark) .aurora-button svg { color:currentColor; }
+html:not(.dark) .auros-nav .nav-cta:hover,
+html:not(.dark) .aurora-button:hover {
+  filter:brightness(1.14);
+}
+html:not(.dark) .ghost-button {
+  border-color:#87979f;
+  color:var(--mist);
+  background:rgba(255,255,255,.55);
+}
+html:not(.dark) .ghost-button:hover { background:var(--liquid-raised); }
+.theme-icon-moon { display:none; }
+html:not(.dark) .theme-icon-sun { display:none; }
+html:not(.dark) .theme-icon-moon { display:block; }
+
+/* SIGNAL / 01: linked metric cards over a subtle animated star field. */
+.signal-section { position:relative; isolation:isolate; overflow:hidden; }
+.signal-section::before,
+.signal-section::after {
+  content:"";
+  position:absolute;
+  z-index:-1;
+  inset:-18%;
+  pointer-events:none;
+  background-repeat:repeat;
+}
+.signal-section::before {
+  opacity:.72;
+  background-image:
+    radial-gradient(circle,rgba(105,255,229,.95) 0 1.3px,transparent 2.1px),
+    radial-gradient(circle,rgba(116,167,255,.92) 0 1.1px,transparent 1.9px),
+    radial-gradient(circle,rgba(214,134,255,.9) 0 1.5px,transparent 2.3px),
+    radial-gradient(circle,rgba(255,131,188,.88) 0 1px,transparent 1.8px),
+    radial-gradient(circle,rgba(255,220,108,.92) 0 1.2px,transparent 2px);
+  background-size:83px 127px,137px 89px,191px 149px,107px 173px,229px 101px;
+  background-position:11px 19px,73px 41px,29px 103px,91px 7px,151px 67px;
+  animation:signal-stars-drift 27s linear infinite;
+}
+.signal-section::after {
+  opacity:.52;
+  background-image:
+    radial-gradient(circle,rgba(255,255,255,1) 0 1.8px,rgba(136,243,255,.38) 2px,transparent 4px),
+    radial-gradient(circle,rgba(255,190,244,.95) 0 1.35px,transparent 2.8px),
+    radial-gradient(circle,rgba(255,235,151,.95) 0 1.5px,transparent 3px);
+  background-size:251px 181px,163px 271px,307px 137px;
+  background-position:37px 91px,121px 17px,203px 113px;
+  animation:signal-stars-counter 39s linear infinite,signal-stars-twinkle 4.2s ease-in-out infinite alternate;
+}
+.metric-reveal { min-width:0; height:100%; }
+.metric-card {
+  min-height:260px;
+  height:100%;
+  padding:20px;
+  border-radius:16px;
+  background:color-mix(in srgb,var(--liquid-raised) 91%,transparent);
+  border:1px solid rgba(125,211,202,.12);
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  position:relative;
+  overflow:hidden;
+  backdrop-filter:blur(5px);
+  transition:background .3s,transform .3s,border-color .3s,box-shadow .3s;
+}
+.metric-card:hover,
+.metric-card:focus-visible {
+  background:#06413e;
+  transform:translateY(-5px);
+  border-color:#3a837c;
+  box-shadow:0 18px 42px rgba(0,0,0,.18);
+}
+.metric-card>div { display:flex;justify-content:space-between;color:var(--silver);font-size:10px; }
+.metric-card svg { width:20px; }
+.metric-card strong { color:var(--phosphor);font-size:clamp(3.7rem,6vw,6.5rem);line-height:1;font-weight:500;letter-spacing:-.05em; }
+.metric-card p { margin:0;color:var(--mist);font-size:13px;text-transform:uppercase;letter-spacing:.08em; }
+.metric-card-arrow { position:absolute;right:18px;bottom:16px;opacity:0;transform:translate(-5px,5px);transition:opacity .25s,transform .25s; }
+.metric-card:hover .metric-card-arrow,
+.metric-card:focus-visible .metric-card-arrow { opacity:1;transform:none; }
+html:not(.dark) .signal-section::before {
+  opacity:.48;
+  background-image:
+    radial-gradient(circle,rgba(0,126,150,.9) 0 1.3px,transparent 2.1px),
+    radial-gradient(circle,rgba(42,91,190,.88) 0 1.1px,transparent 1.9px),
+    radial-gradient(circle,rgba(126,55,174,.82) 0 1.5px,transparent 2.3px),
+    radial-gradient(circle,rgba(190,48,108,.78) 0 1px,transparent 1.8px),
+    radial-gradient(circle,rgba(170,112,0,.82) 0 1.2px,transparent 2px);
+}
+html:not(.dark) .signal-section::after {
+  opacity:.3;
+  background-image:
+    radial-gradient(circle,rgba(19,69,91,.95) 0 1.8px,rgba(35,116,146,.2) 2px,transparent 4px),
+    radial-gradient(circle,rgba(130,45,117,.85) 0 1.35px,transparent 2.8px),
+    radial-gradient(circle,rgba(145,99,0,.85) 0 1.5px,transparent 3px);
+}
+html:not(.dark) .metric-card:hover,
+html:not(.dark) .metric-card:focus-visible { background:#dce6ea;color:var(--mist);border-color:#829ba5;box-shadow:0 18px 42px rgba(35,57,67,.14); }
+@keyframes signal-stars-drift { to { transform:translate3d(91px,-63px,0) rotate(.35deg); } }
+@keyframes signal-stars-counter { to { background-position:288px -73px,-119px 304px,347px 19px; } }
+@keyframes signal-stars-twinkle { from { filter:brightness(.72); } to { filter:brightness(1.42); } }
+@media(max-width:650px){.metric-card{min-height:190px;padding:16px}.metric-card strong{font-size:4rem}}
+@media(prefers-reduced-motion:reduce){.signal-section::before,.signal-section::after{animation:none!important}}
+
+/* Hero hierarchy: the name leads, while the professional headline supports it. */
+.auros-hero h1.auros-name { font-size:clamp(6.5rem,13vw,13rem);line-height:.72;letter-spacing:-.075em; }
+.auros-headline { max-width:620px;margin:34px 0 0;color:var(--mist);font-size:clamp(1.25rem,2.1vw,2rem);line-height:1.12;letter-spacing:-.035em;font-weight:500; }
+.auros-headline .auros-line-mask { padding-bottom:.12em; }
+.auros-lead { margin-top:24px; }
+
+/* Validated learning: make competition outcomes immediately scannable. */
+.competition-evidence-meta { display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:7px; }
+.competition-evidence-meta>small { margin:0; }
+.competition-result { display:flex;align-items:center;gap:6px;flex-wrap:wrap; }
+.competition-result span { min-height:25px;display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;font-size:9px;line-height:1;font-weight:750;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap; }
+.competition-result svg { width:12px;height:12px; }
+.rank-badge { color:#fff2a8;border:1px solid rgba(255,211,76,.42);background:linear-gradient(120deg,rgba(177,116,0,.46),rgba(95,58,0,.54));box-shadow:0 0 18px rgba(255,195,45,.12),inset 0 1px rgba(255,255,255,.12); }
+.award-badge { color:#e8d2ff;border:1px solid rgba(199,145,255,.34);background:rgba(111,65,151,.34); }
+html:not(.dark) .rank-badge { color:#684400;border-color:#c28a12;background:linear-gradient(120deg,#fff2b8,#f3cf6d);box-shadow:0 5px 14px rgba(125,83,0,.13),inset 0 1px rgba(255,255,255,.65); }
+html:not(.dark) .award-badge { color:#633083;border-color:#b787d0;background:#f1e3f8; }
+@media(max-width:650px){.auros-hero h1.auros-name{font-size:clamp(6rem,30vw,9rem)}.auros-headline{max-width:78%;font-size:1.15rem;margin-top:24px}.competition-evidence-meta{align-items:flex-start;flex-direction:column;gap:6px}.competition-result span{font-size:8px}}
+
+.form-navigation { display:flex;align-items:center;gap:14px;min-width:0; }
+.form-navigation .button { min-height:40px;padding:7px 14px;flex:0 0 auto; }
+@media(max-width:650px){.sticky-actions{align-items:stretch}.form-navigation span{display:none}.form-navigation .button,.sticky-actions>button{flex:1}.form-navigation{flex:1}}
+
 .meta-inline-form { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)) auto; gap:14px; align-items:end; }
 .meta-inline-form label { font-weight:680; }
 .meta-inline-form input,

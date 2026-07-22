@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, Moon, X } from "lucide-react";
+import { Menu, Moon, Sun, X } from "lucide-react";
 import { useState } from "react";
 const links = [
   ["Projects", "/projects"],
@@ -13,12 +13,13 @@ const links = [
 export function PublicNav() {
   const path = usePathname();
   const [open, setOpen] = useState(false);
+
   function theme() {
-    document.documentElement.classList.toggle("dark");
-    localStorage.setItem(
-      "theme",
-      document.documentElement.classList.contains("dark") ? "dark" : "light",
-    );
+    const nextDark = !document.documentElement.classList.contains("dark");
+    document.documentElement.classList.toggle("dark", nextDark);
+    document.documentElement.style.colorScheme = nextDark ? "dark" : "light";
+    localStorage.setItem("theme", nextDark ? "dark" : "light");
+    window.dispatchEvent(new CustomEvent("themechange", { detail: nextDark ? "dark" : "light" }));
   }
   return (
     <nav className="public-nav auros-nav" aria-label="Primary">
@@ -50,8 +51,13 @@ export function PublicNav() {
           ))}
         </div>
         <div className="nav-actions">
-          <button onClick={theme} aria-label="Toggle color theme">
-            <Moon />
+          <button
+            onClick={theme}
+            aria-label="Toggle color theme"
+            title="Toggle color theme"
+          >
+            <Sun className="theme-icon theme-icon-sun" />
+            <Moon className="theme-icon theme-icon-moon" />
           </button>
           <Link className="nav-cta" href="/admin/login">
             Owner access

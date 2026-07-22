@@ -17,21 +17,20 @@ import {
 import { ParticleSphere } from "@/components/particle-sphere";
 
 export default async function Home() {
-  const [profile, stats, projects, competitions, certificates, skills] =
+  const [profile, stats, competitions, certificates, skills] =
     await Promise.all([
       siteProfile(),
       publicStats(),
-      listContent("projects", { limit: 3 }),
       listContent("competitions", { limit: 3 }),
       listContent("certificates", { limit: 3 }),
       listContent("skills", { limit: 8 }),
     ]);
   const metrics = [
-    ["Competitions", stats.competitions, Trophy],
-    ["Certificates", stats.certificates, FileCheck2],
-    ["Projects", stats.projects, FolderCode],
-    ["Awards", stats.awards, Award],
-    ["Experiences", stats.experiences, BriefcaseBusiness],
+    ["Competitions", stats.competitions, Trophy, "/competitions"],
+    ["Certificates", stats.certificates, FileCheck2, "/certificates"],
+    ["Projects", stats.projects, FolderCode, "/projects"],
+    ["Awards", stats.awards, Award, "/awards"],
+    ["Experiences", stats.experiences, BriefcaseBusiness, "/experience"],
   ] as const;
   return (
     <div className="auros-home">
@@ -46,10 +45,12 @@ export default async function Home() {
         </div>
         <div className="auros-hero-copy">
           <p className="auros-kicker">Personal Achievement Hub</p>
-          <h1>
-            <LineRise>{profile?.name_en}</LineRise>
-            <LineRise delay={0.1}>{profile?.headline_en}</LineRise>
+          <h1 className="auros-name">
+            <LineRise>Tao</LineRise>
           </h1>
+          <p className="auros-headline">
+            <LineRise delay={0.1}>{profile?.headline_en}</LineRise>
+          </p>
           <LineRise delay={0.22}>
             <p className="auros-lead">{profile?.bio_en}</p>
           </LineRise>
@@ -102,58 +103,16 @@ export default async function Home() {
           </div>
         </Reveal>
         <div className="metrics-grid">
-          {metrics.map(([label, value, Icon], index) => (
-            <Reveal key={label} delay={index * 0.06}>
-              <article>
+          {metrics.map(([label, value, Icon, href], index) => (
+            <Reveal key={label} delay={index * 0.06} className="metric-reveal">
+              <Link href={href} className="metric-card" aria-label={`View ${label}`}>
                 <div>
                   <Icon />
                   <span>0{index + 1}</span>
                 </div>
                 <strong>{String(value).padStart(2, "0")}</strong>
                 <p>{label}</p>
-              </article>
-            </Reveal>
-          ))}
-        </div>
-      </section>
-
-      <section className="systems-section">
-        <Reveal>
-          <div className="auros-section-head horizontal">
-            <div>
-              <p className="auros-kicker">Selected systems / 02</p>
-              <h2>
-                Built to
-                <br />
-                move ideas.
-              </h2>
-            </div>
-            <Link href="/projects">
-              All projects <ArrowUpRight />
-            </Link>
-          </div>
-        </Reveal>
-        <div className="auros-project-grid">
-          {projects.map((item, index) => (
-            <Reveal key={String(item.id)} delay={index * 0.1}>
-              <Link
-                href={`/projects/${String(item.slug)}`}
-                className="auros-project-card"
-              >
-                <div className="project-orb-canvas">
-                  <ParticleSphere density={index === 0 ? "medium" : "low"} label={`${String(item.title_en)} particle visual`} />
-                  <span>SYS / 0{index + 1}</span>
-                </div>
-                <div className="auros-project-info">
-                  <p>
-                    {Array.isArray(item.tech_stack)
-                      ? item.tech_stack.map(String).join(" · ")
-                      : "Selected project"}
-                  </p>
-                  <h3>{String(item.title_en)}</h3>
-                  <span>{String(item.summary_en ?? "")}</span>
-                  <ArrowUpRight />
-                </div>
+                <ArrowUpRight className="metric-card-arrow" aria-hidden />
               </Link>
             </Reveal>
           ))}
@@ -163,7 +122,7 @@ export default async function Home() {
       <section className="evidence-section">
         <Reveal>
           <div className="auros-section-head">
-            <p className="auros-kicker">Validated learning / 03</p>
+            <p className="auros-kicker">Validated learning / 02</p>
             <h2>
               Where curiosity
               <br />
@@ -186,9 +145,23 @@ export default async function Home() {
                   <span>{String(index + 1).padStart(2, "0")}</span>
                   <div>
                     <strong>{String(item.title_en)}</strong>
-                    <small>
-                      {String(item.organizer ?? item.award ?? "Competition")}
-                    </small>
+                    <div className="competition-evidence-meta">
+                      <small>{String(item.organizer ?? "Competition")}</small>
+                      <div className="competition-result" aria-label="Competition result">
+                        {Boolean(item.placement) && (
+                          <span className="rank-badge">
+                            <Trophy aria-hidden />
+                            {String(item.placement)}
+                          </span>
+                        )}
+                        {Boolean(item.award) && (
+                          <span className="award-badge">
+                            <Award aria-hidden />
+                            {String(item.award)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   <em>{String(item.competition_date ?? "").slice(0, 4)}</em>
                   <ArrowUpRight />
@@ -225,7 +198,7 @@ export default async function Home() {
         <Reveal>
           <div className="auros-section-head horizontal">
             <div>
-              <p className="auros-kicker">Capabilities / 04</p>
+              <p className="auros-kicker">Capabilities / 03</p>
               <h2>
                 Adaptable by
                 <br />
@@ -253,7 +226,7 @@ export default async function Home() {
 
       <section className="auros-contact">
         <Reveal>
-          <p className="auros-kicker">Open channel / 05</p>
+          <p className="auros-kicker">Open channel / 04</p>
           <h2>
             Have a challenge
             <br />

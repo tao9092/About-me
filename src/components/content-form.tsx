@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { toast } from "sonner";
@@ -55,6 +56,7 @@ export function ContentForm({ entity, record }: { entity: EntityTable; record?: 
 
   const requiredFields = fields[entity].filter(([name]) => required[entity].includes(name));
   const optionalFields = fields[entity].filter(([name]) => !required[entity].includes(name));
+  const collectionPath = `/admin/${entity.replaceAll("_", "-")}`;
 
   return <form action={action} className="content-form simplified-form">
     <input type="hidden" name="entity" value={entity} />
@@ -89,7 +91,13 @@ export function ContentForm({ entity, record }: { entity: EntityTable; record?: 
       </div>
     </details>
     {state?.error && <p className="form-error" role="alert">{state.error}</p>}
-    <div className="sticky-actions"><span>New records always begin as Draft.</span><Submit /></div>
+    <div className="sticky-actions">
+      <div className="form-navigation">
+        <Link href={collectionPath} className="button button-secondary">Back to list</Link>
+        <span>New records always begin as Draft.</span>
+      </div>
+      <Submit />
+    </div>
   </form>;
 }
 

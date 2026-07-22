@@ -130,8 +130,9 @@ export async function saveContentAction(
     }
     return { error: error.message };
   }
-  revalidatePath(`/admin/${entity.replaceAll("_", "-")}`);
-  return { success: "Draft saved" };
+  const collectionPath = `/admin/${entity.replaceAll("_", "-")}`;
+  revalidatePath(collectionPath);
+  redirect(collectionPath);
 }
 
 export async function setStatusAction(formData: FormData) {
