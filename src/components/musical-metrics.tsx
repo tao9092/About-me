@@ -27,6 +27,7 @@ export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
   const cards = useRef<Array<HTMLElement | null>>([]);
   const animationFrame = useRef<number | null>(null);
   const snapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const waveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rotation = useRef(0);
   const velocity = useRef(0);
   const snapTarget = useRef<number | null>(null);
@@ -35,6 +36,7 @@ export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
   const moved = useRef(false);
   const selectedRef = useRef(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [waveIndex, setWaveIndex] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
@@ -65,6 +67,9 @@ export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
       if (visibleIndex !== selectedRef.current) {
         selectedRef.current = visibleIndex;
         setSelectedIndex(visibleIndex);
+        setWaveIndex(visibleIndex);
+        if (waveTimer.current) clearTimeout(waveTimer.current);
+        waveTimer.current = setTimeout(() => setWaveIndex(null), 720);
       }
 
       cards.current.forEach((card, index) => {
@@ -99,6 +104,7 @@ export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
     return () => {
       if (animationFrame.current) cancelAnimationFrame(animationFrame.current);
       if (snapTimer.current) clearTimeout(snapTimer.current);
+      if (waveTimer.current) clearTimeout(waveTimer.current);
     };
   }, [metrics.length]);
 
@@ -202,7 +208,7 @@ export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
                   isSelected ? "carousel-card-selected" : ""
                 } ${isPrevious ? "carousel-card-previous" : ""} ${
                   isNext ? "carousel-card-next" : ""
-                }`}
+                } ${waveIndex === index ? "signal-wave-active" : ""}`}
                 href={href}
                 key={label}
                 ref={(element) => {
@@ -227,6 +233,15 @@ export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
                 <strong>{String(value).padStart(2, "0")}</strong>
                 <div className="carousel-card-footer">
                   <p>{label}</p>
+                  <span className="signal-wave" aria-hidden>
+                    <i />
+                    <i />
+                    <i />
+                    <i />
+                    <i />
+                    <i />
+                    <i />
+                  </span>
                 </div>
                 <span className="central-scan" aria-hidden />
               </Link>

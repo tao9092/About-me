@@ -15,6 +15,7 @@ import { ParticleSphere } from "@/components/particle-sphere";
 import { MusicalMetrics } from "@/components/musical-metrics";
 import { ScrambleText } from "@/components/scramble-text";
 import { CapabilityAtlas } from "@/components/capability-atlas";
+import { SignalCosmos } from "@/components/signal-cosmos";
 
 export default async function Home() {
   const [profile, stats, competitions, projects, skills] =
@@ -88,6 +89,7 @@ export default async function Home() {
       </section>
 
       <section className="signal-section" id="signal">
+        <SignalCosmos />
         <Reveal>
           <div className="auros-section-head">
             <p className="auros-kicker">Signal / 01</p>
