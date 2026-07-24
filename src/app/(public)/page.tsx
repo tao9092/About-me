@@ -3,9 +3,6 @@ import {
   ArrowDown,
   ArrowUpRight,
   Award,
-  BriefcaseBusiness,
-  FileCheck2,
-  FolderCode,
   Trophy,
 } from "lucide-react";
 import { listContent, publicStats, siteProfile } from "@/lib/content";
@@ -15,6 +12,7 @@ import {
   Reveal,
 } from "@/components/editorial-motion";
 import { ParticleSphere } from "@/components/particle-sphere";
+import { MusicalMetrics } from "@/components/musical-metrics";
 
 export default async function Home() {
   const [profile, stats, competitions, certificates, skills] =
@@ -26,12 +24,12 @@ export default async function Home() {
       listContent("skills", { limit: 8 }),
     ]);
   const metrics = [
-    ["Competitions", stats.competitions, Trophy, "/competitions"],
-    ["Certificates", stats.certificates, FileCheck2, "/certificates"],
-    ["Projects", stats.projects, FolderCode, "/projects"],
-    ["Awards", stats.awards, Award, "/awards"],
-    ["Experiences", stats.experiences, BriefcaseBusiness, "/experience"],
-  ] as const;
+    { label: "Competitions", value: stats.competitions, href: "/competitions" },
+    { label: "Certificates", value: stats.certificates, href: "/certificates" },
+    { label: "Projects", value: stats.projects, href: "/projects" },
+    { label: "Awards", value: stats.awards, href: "/awards" },
+    { label: "Experiences", value: stats.experiences, href: "/experience" },
+  ];
   return (
     <div className="auros-home">
       <section className="auros-hero">
@@ -102,21 +100,9 @@ export default async function Home() {
             </p>
           </div>
         </Reveal>
-        <div className="metrics-grid">
-          {metrics.map(([label, value, Icon, href], index) => (
-            <Reveal key={label} delay={index * 0.06} className="metric-reveal">
-              <Link href={href} className="metric-card" aria-label={`View ${label}`}>
-                <div>
-                  <Icon />
-                  <span>0{index + 1}</span>
-                </div>
-                <strong>{String(value).padStart(2, "0")}</strong>
-                <p>{label}</p>
-                <ArrowUpRight className="metric-card-arrow" aria-hidden />
-              </Link>
-            </Reveal>
-          ))}
-        </div>
+        <Reveal>
+          <MusicalMetrics metrics={metrics} />
+        </Reveal>
       </section>
 
       <section className="evidence-section">
