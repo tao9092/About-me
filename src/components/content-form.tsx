@@ -32,6 +32,20 @@ const required: Record<EntityTable, string[]> = {
 
 function FieldInput({ field, record, isRequired }: { field: Field; record?: Record<string, unknown>; isRequired: boolean }) {
   const [name, label, type] = field;
+  if (name === "skill_category") {
+    const current = String(record?.[name] ?? "learning");
+    const options = [
+      ["learning", "Learning capacity / 学力"],
+      ["adaptive", "Adaptive thinking / 灵活思考能力"],
+      ["physical", "Physical capacity / 身体能力"],
+      ["social", "Social contribution / 社会贡献度"],
+    ];
+    const isLegacy = !options.some(([value]) => value === current);
+    return <label>{label} {isRequired && <em aria-label="required">*</em>}<select name={name} required={isRequired} defaultValue={current}>{isLegacy && <option value={current}>{current} (existing category)</option>}{options.map(([value, optionLabel]) => <option value={value} key={value}>{optionLabel}</option>)}</select><span>Controls which Capabilities / 03 panel displays this record.</span></label>;
+  }
+  if (name === "proficiency") {
+    return <label>{label} {isRequired && <em aria-label="required">*</em>}<select name={name} required={isRequired} defaultValue={String(record?.[name] ?? "learning")}><option value="learning">Learning</option><option value="familiar">Familiar</option><option value="proficient">Proficient</option><option value="advanced">Advanced</option><option value="expert">Expert</option></select></label>;
+  }
   return <label>{label} {isRequired && <em aria-label="required">*</em>}<input name={name} type={type} required={isRequired} defaultValue={String(record?.[name] ?? "")} /></label>;
 }
 

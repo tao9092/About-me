@@ -132,6 +132,10 @@ export async function saveContentAction(
   }
   const collectionPath = `/admin/${entity.replaceAll("_", "-")}`;
   revalidatePath(collectionPath);
+  if (entity === "skills") {
+    revalidatePath("/");
+    revalidatePath("/skills");
+  }
   redirect(collectionPath);
 }
 
@@ -175,6 +179,10 @@ export async function setStatusAction(formData: FormData) {
     }
   }
   revalidatePath("/admin", "layout");
+  if (entity === "skills") {
+    revalidatePath("/");
+    revalidatePath("/skills");
+  }
 }
 
 export async function permanentlyDeleteAction(formData: FormData) {

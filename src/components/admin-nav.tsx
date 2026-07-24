@@ -40,7 +40,7 @@ const groups = [
       ["Projects", "/admin/projects", FileStack],
       ["Experience", "/admin/experiences", Briefcase],
       ["Awards", "/admin/awards", Award],
-      ["Skills", "/admin/skills", BookOpen],
+      ["Capabilities", "/admin/skills", BookOpen],
       ["Links", "/admin/links", Link2],
       ["Resume", "/admin/resume", UserCircle],
     ],

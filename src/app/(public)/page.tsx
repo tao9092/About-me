@@ -13,15 +13,17 @@ import {
 } from "@/components/editorial-motion";
 import { ParticleSphere } from "@/components/particle-sphere";
 import { MusicalMetrics } from "@/components/musical-metrics";
+import { ScrambleText } from "@/components/scramble-text";
+import { CapabilityAtlas } from "@/components/capability-atlas";
 
 export default async function Home() {
-  const [profile, stats, competitions, certificates, skills] =
+  const [profile, stats, competitions, projects, skills] =
     await Promise.all([
       siteProfile(),
       publicStats(),
-      listContent("competitions", { limit: 3 }),
-      listContent("certificates", { limit: 3 }),
-      listContent("skills", { limit: 8 }),
+      listContent("competitions", { limit: 100 }),
+      listContent("projects", { limit: 100 }),
+      listContent("skills", { limit: 40 }),
     ]);
   const metrics = [
     { label: "Competitions", value: stats.competitions, href: "/competitions" },
@@ -116,67 +118,160 @@ export default async function Home() {
             </h2>
           </div>
         </Reveal>
-        <div className="auros-evidence-grid">
-          <div>
-            <div className="evidence-title">
-              <span>Competitions</span>
+        <div className="evidence-control-board">
+          <section className="evidence-console competition-console">
+            <header>
+              <div>
+                <span className="console-status">
+                  <i /> Verified records
+                </span>
+                <h3>Competitions</h3>
+              </div>
+              <strong>{String(competitions.length).padStart(2, "0")}</strong>
               <Link href="/competitions">View index</Link>
-            </div>
-            {competitions.map((item, index) => (
-              <Reveal key={String(item.id)} delay={index * 0.06}>
+            </header>
+            <div
+              className="evidence-console-scroll"
+              tabIndex={0}
+              aria-label="All competition records"
+            >
+              {competitions.map((item, index) => (
                 <Link
-                  className="auros-evidence-row"
+                  className="evidence-dossier competition-dossier"
                   href={`/competitions/${String(item.slug)}`}
+                  key={String(item.id)}
                 >
-                  <span>{String(index + 1).padStart(2, "0")}</span>
-                  <div>
-                    <strong>{String(item.title_en)}</strong>
-                    <div className="competition-evidence-meta">
-                      <small>{String(item.organizer ?? "Competition")}</small>
-                      <div className="competition-result" aria-label="Competition result">
-                        {Boolean(item.placement) && (
-                          <span className="rank-badge">
-                            <Trophy aria-hidden />
-                            {String(item.placement)}
-                          </span>
-                        )}
-                        {Boolean(item.award) && (
-                          <span className="award-badge">
-                            <Award aria-hidden />
-                            {String(item.award)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                  <div className="dossier-topline">
+                    <span>
+                      COMP /{" "}
+                      <ScrambleText
+                        text={String(index + 1).padStart(2, "0")}
+                        delay={index * 90}
+                      />
+                    </span>
+                    <em>
+                      <ScrambleText
+                        text={String(item.competition_date ?? "").slice(0, 4)}
+                        delay={260 + index * 90}
+                      />
+                    </em>
                   </div>
-                  <em>{String(item.competition_date ?? "").slice(0, 4)}</em>
-                  <ArrowUpRight />
+                  <h4>
+                    <ScrambleText
+                      text={String(item.title_en)}
+                      delay={70 + index * 90}
+                    />
+                  </h4>
+                  <p className="dossier-meta">
+                    <ScrambleText
+                      text={String(item.organizer ?? "Competition")}
+                      delay={140 + index * 90}
+                    />
+                  </p>
+                  <div
+                    className="competition-result"
+                    aria-label="Competition result"
+                  >
+                    {Boolean(item.placement) && (
+                      <span className="rank-badge">
+                        <Trophy aria-hidden />
+                        <span className="result-label">Result /</span>
+                        <ScrambleText
+                          text={String(item.placement)}
+                          delay={200 + index * 90}
+                          className="result-value"
+                        />
+                      </span>
+                    )}
+                    {Boolean(item.award) && (
+                      <span className="award-badge">
+                        <Award aria-hidden />
+                        <span className="result-label">Award /</span>
+                        <ScrambleText
+                          text={String(item.award)}
+                          delay={230 + index * 90}
+                          className="result-value"
+                        />
+                      </span>
+                    )}
+                  </div>
+                  <div className="dossier-action">
+                    <span>Open verified record</span>
+                    <ArrowUpRight />
+                  </div>
                 </Link>
-              </Reveal>
-            ))}
-          </div>
-          <div>
-            <div className="evidence-title">
-              <span>Certificates</span>
-              <Link href="/certificates">View index</Link>
+              ))}
             </div>
-            {certificates.map((item, index) => (
-              <Reveal key={String(item.id)} delay={index * 0.06}>
+          </section>
+
+          <section className="evidence-console project-console">
+            <header>
+              <div>
+                <span className="console-status">
+                  <i /> Built records
+                </span>
+                <h3>Projects</h3>
+              </div>
+              <strong>{String(projects.length).padStart(2, "0")}</strong>
+              <Link href="/projects">View index</Link>
+            </header>
+            <div
+              className="evidence-console-scroll"
+              tabIndex={0}
+              aria-label="All project records"
+            >
+              {projects.map((item, index) => (
                 <Link
-                  className="auros-evidence-row"
-                  href={`/certificates/${String(item.slug)}`}
+                  className="evidence-dossier project-dossier"
+                  href={`/projects/${String(item.slug)}`}
+                  key={String(item.id)}
                 >
-                  <span>{String(index + 1).padStart(2, "0")}</span>
-                  <div>
-                    <strong>{String(item.title_en)}</strong>
-                    <small>{String(item.issuer ?? "Certificate")}</small>
+                  <div className="dossier-topline">
+                    <span>
+                      BUILD /{" "}
+                      <ScrambleText
+                        text={String(index + 1).padStart(2, "0")}
+                        delay={index * 90}
+                      />
+                    </span>
+                    <em>
+                      <ScrambleText
+                        text={String(
+                          item.project_date ?? item.updated_at ?? "",
+                        ).slice(0, 4)}
+                        delay={230 + index * 90}
+                      />
+                    </em>
                   </div>
-                  <em>{String(item.issued_at ?? "").slice(0, 4)}</em>
-                  <ArrowUpRight />
+                  <h4>
+                    <ScrambleText
+                      text={String(item.title_en)}
+                      delay={70 + index * 90}
+                    />
+                  </h4>
+                  <p className="dossier-meta">
+                    <ScrambleText
+                      text={
+                        Array.isArray(item.tech_stack) &&
+                        item.tech_stack.length > 0
+                          ? item.tech_stack.map(String).join(" · ")
+                          : String(item.summary_en ?? "Selected project")
+                      }
+                      delay={150 + index * 90}
+                    />
+                  </p>
+                  <div className="project-state">
+                    <span>Build status</span>
+                    <strong>Published</strong>
+                  </div>
+                  <div className="dossier-action">
+                    <span>Open project record</span>
+                    <ArrowUpRight />
+                  </div>
                 </Link>
-              </Reveal>
-            ))}
-          </div>
+              ))}
+            </div>
+          </section>
         </div>
       </section>
 
@@ -186,28 +281,25 @@ export default async function Home() {
             <div>
               <p className="auros-kicker">Capabilities / 03</p>
               <h2>
-                Adaptable by
+                Shaped across
                 <br />
-                design.
+                every field.
               </h2>
             </div>
             <p>
-              Tools are temporary. The system for learning, building and
-              communicating is the durable skill.
+              What I explore shapes how I learn, think, move and contribute
+              to the people and systems around me.
             </p>
           </div>
         </Reveal>
-        <div className="capability-cloud">
-          {skills.map((skill, index) => (
-            <Reveal key={String(skill.id)} delay={index * 0.035}>
-              <Link href="/skills">
-                <span>0{index + 1}</span>
-                {String(skill.title_en)}
-                <i>{String(skill.proficiency ?? "Practised")}</i>
-              </Link>
-            </Reveal>
-          ))}
-        </div>
+        <CapabilityAtlas
+          skills={skills.map((skill) => ({
+            title: String(skill.title_en),
+            category: String(skill.skill_category ?? "General"),
+            proficiency: String(skill.proficiency ?? "Practised"),
+            summary: String(skill.summary_en ?? ""),
+          }))}
+        />
       </section>
 
       <section className="auros-contact">

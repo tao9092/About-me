@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import {
-  ArrowUpRight,
   Award,
   BriefcaseBusiness,
   FileCheck2,
@@ -17,126 +16,240 @@ type Metric = {
   href: string;
 };
 
-const notes = [
-  { name: "Do", frequency: 261.63 },
-  { name: "Re", frequency: 293.66 },
-  { name: "Mi", frequency: 329.63 },
-  { name: "Fa", frequency: 349.23 },
-  { name: "Sol", frequency: 392 },
-] as const;
-
 const icons = [Trophy, FileCheck2, FolderCode, Award, BriefcaseBusiness];
+const STEP = 360 / icons.length;
+
+function nearestEquivalent(current: number, target: number) {
+  return target + Math.round((current - target) / 360) * 360;
+}
 
 export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
-  const audioContext = useRef<AudioContext | null>(null);
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [activeNote, setActiveNote] = useState<number | null>(null);
+  const cards = useRef<Array<HTMLElement | null>>([]);
+  const animationFrame = useRef<number | null>(null);
+  const snapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rotation = useRef(0);
+  const velocity = useRef(0);
+  const snapTarget = useRef<number | null>(null);
+  const pointer = useRef({ id: -1, x: 0, startX: 0 });
+  const dragging = useRef(false);
+  const moved = useRef(false);
+  const selectedRef = useRef(0);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
 
-  useEffect(
-    () => () => {
-      if (hoverTimer.current) clearTimeout(hoverTimer.current);
-      void audioContext.current?.close();
-    },
-    [],
-  );
+  useEffect(() => {
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
 
-  function playNote(index: number) {
-    const AudioContextClass =
-      window.AudioContext ??
-      (
-        window as typeof window & {
-          webkitAudioContext?: typeof AudioContext;
+    const animate = () => {
+      if (!dragging.current) {
+        if (snapTarget.current !== null) {
+          const delta = snapTarget.current - rotation.current;
+          rotation.current += delta * (reducedMotion ? 1 : 0.12);
+
+          if (Math.abs(delta) < 0.035) {
+            rotation.current = snapTarget.current;
+            snapTarget.current = null;
+          }
+        } else {
+          rotation.current += velocity.current;
+          velocity.current *= 0.93;
         }
-      ).webkitAudioContext;
+      }
 
-    if (!AudioContextClass) return;
+      const visibleIndex =
+        ((-Math.round(rotation.current / STEP)) % metrics.length +
+          metrics.length) %
+        metrics.length;
+      if (visibleIndex !== selectedRef.current) {
+        selectedRef.current = visibleIndex;
+        setSelectedIndex(visibleIndex);
+      }
 
-    const context =
-      audioContext.current ??
-      (audioContext.current = new AudioContextClass());
+      cards.current.forEach((card, index) => {
+        if (!card) return;
+        const rawPosition = index + rotation.current / STEP;
+        const position =
+          ((((rawPosition + metrics.length / 2) % metrics.length) +
+            metrics.length) %
+            metrics.length) -
+          metrics.length / 2;
+        const distance = Math.abs(position);
+        const spread = window.innerWidth <= 650 ? 58 : 72;
+        const depth = distance * 115;
+        const drop = distance * 27;
+        const tilt = -position * 24;
+        const scale = 1 - Math.min(distance, 2) * 0.075;
+        const blur = Math.min(distance * 1.15, 2.4);
+        const brightness = 1 - Math.min(distance, 2) * 0.11;
+        const saturation = 1 - Math.min(distance, 2) * 0.09;
+        const opacity = 1 - Math.min(distance, 2.35) * 0.22;
 
-    if (context.state === "suspended") void context.resume();
+        card.style.transform = `translateX(${position * spread}%) translateY(${drop}px) translateZ(${-depth}px) rotateY(${tilt}deg) scale(${scale})`;
+        card.style.zIndex = String(10 - Math.round(distance * 2));
+        card.style.filter = `blur(${blur}px) brightness(${brightness}) saturate(${saturation})`;
+        card.style.opacity = String(Math.max(opacity, 0.38));
+      });
 
-    const now = context.currentTime;
-    const master = context.createGain();
-    const compressor = context.createDynamicsCompressor();
-    const partials = [
-      { ratio: 1, volume: 0.38, decay: 1.35, type: "triangle" },
-      { ratio: 2, volume: 0.16, decay: 0.82, type: "sine" },
-      { ratio: 3, volume: 0.075, decay: 0.52, type: "sine" },
-      { ratio: 4, volume: 0.035, decay: 0.34, type: "sine" },
-    ] as const;
+      animationFrame.current = requestAnimationFrame(animate);
+    };
 
-    master.gain.setValueAtTime(1.28, now);
-    compressor.threshold.setValueAtTime(-12, now);
-    compressor.knee.setValueAtTime(12, now);
-    compressor.ratio.setValueAtTime(4, now);
-    compressor.attack.setValueAtTime(0.003, now);
-    compressor.release.setValueAtTime(0.18, now);
-    master.connect(compressor).connect(context.destination);
+    animationFrame.current = requestAnimationFrame(animate);
+    return () => {
+      if (animationFrame.current) cancelAnimationFrame(animationFrame.current);
+      if (snapTimer.current) clearTimeout(snapTimer.current);
+    };
+  }, [metrics.length]);
 
-    partials.forEach(({ ratio, volume, decay, type }) => {
-      const oscillator = context.createOscillator();
-      const gain = context.createGain();
+  function rotateTo(index: number) {
+    velocity.current = 0;
+    const baseTarget = -index * STEP;
+    snapTarget.current = nearestEquivalent(rotation.current, baseTarget);
+    selectedRef.current = index;
+    setSelectedIndex(index);
+  }
 
-      oscillator.type = type;
-      oscillator.frequency.setValueAtTime(notes[index].frequency * ratio, now);
-      oscillator.detune.setValueAtTime(ratio === 1 ? -2 : ratio, now);
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(volume, now + 0.006);
-      gain.gain.exponentialRampToValueAtTime(volume * 0.34, now + 0.09);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + decay);
+  function startDrag(event: React.PointerEvent<HTMLDivElement>) {
+    dragging.current = true;
+    setIsDragging(true);
+    moved.current = false;
+    snapTarget.current = null;
+    if (snapTimer.current) clearTimeout(snapTimer.current);
+    pointer.current = {
+      id: event.pointerId,
+      x: event.clientX,
+      startX: event.clientX,
+    };
+    velocity.current = 0;
+  }
 
-      oscillator.connect(gain).connect(master);
-      oscillator.start(now);
-      oscillator.stop(now + decay + 0.03);
-    });
+  function moveCarousel(event: React.PointerEvent<HTMLDivElement>) {
+    if (!dragging.current || pointer.current.id !== event.pointerId) return;
+    const deltaX = event.clientX - pointer.current.x;
+    if (Math.abs(event.clientX - pointer.current.startX) > 6) {
+      moved.current = true;
+      if (!event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }
+    }
+    rotation.current += deltaX * 0.34;
+    velocity.current = deltaX * 0.055;
+    pointer.current.x = event.clientX;
+  }
 
-    setActiveNote(index);
-    if (hoverTimer.current) clearTimeout(hoverTimer.current);
-    hoverTimer.current = setTimeout(() => setActiveNote(null), 650);
+  function stopDrag(event: React.PointerEvent<HTMLDivElement>) {
+    if (pointer.current.id !== event.pointerId) return;
+    dragging.current = false;
+    setIsDragging(false);
+    pointer.current.id = -1;
+    snapTimer.current = setTimeout(() => {
+      velocity.current = 0;
+      const target = Math.round(rotation.current / STEP) * STEP;
+      snapTarget.current = target;
+    }, 360);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setTimeout(() => {
+      moved.current = false;
+    }, 0);
   }
 
   return (
-    <div className="metrics-grid musical-metrics" aria-label="Musical achievement nodes">
-      {metrics.map(({ label, value, href }, index) => {
-        const Icon = icons[index];
-        const isActive = activeNote === index;
-
-        return (
-          <article
-            className={isActive ? "metric-note-active" : undefined}
+    <div className="metric-carousel-wrap">
+      <p className="carousel-instruction">
+        <span aria-hidden>↔</span> Drag or swipe · Select a card to focus
+      </p>
+      <div
+        className={`metric-carousel-stage ${isDragging ? "is-dragging" : ""}`}
+        role="region"
+        aria-label="Achievement card carousel"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowRight") {
+            event.preventDefault();
+            rotateTo((selectedRef.current + 1) % metrics.length);
+          }
+          if (event.key === "ArrowLeft") {
+            event.preventDefault();
+            rotateTo(
+              (selectedRef.current - 1 + metrics.length) % metrics.length,
+            );
+          }
+        }}
+        onPointerDown={startDrag}
+        onPointerMove={moveCarousel}
+        onPointerUp={stopDrag}
+        onPointerCancel={stopDrag}
+      >
+        <div className="carousel-ambient" aria-hidden>
+          <i />
+          <i />
+          <i />
+        </div>
+        <div className="metric-carousel">
+          {metrics.map(({ label, value, href }, index) => {
+            const Icon = icons[index];
+            const isSelected = selectedIndex === index;
+            const isPrevious =
+              index ===
+              (selectedIndex - 1 + metrics.length) % metrics.length;
+            const isNext = index === (selectedIndex + 1) % metrics.length;
+            return (
+              <Link
+                className={`carousel-card ${
+                  isSelected ? "carousel-card-selected" : ""
+                } ${isPrevious ? "carousel-card-previous" : ""} ${
+                  isNext ? "carousel-card-next" : ""
+                }`}
+                href={href}
+                key={label}
+                ref={(element) => {
+                  cards.current[index] = element;
+                }}
+                draggable={false}
+                aria-label={`${label}, ${value}`}
+                aria-current={isSelected ? "true" : undefined}
+                onDragStart={(event) => event.preventDefault()}
+                onClick={(event) => {
+                  if (moved.current) {
+                    event.preventDefault();
+                    moved.current = false;
+                    return;
+                  }
+                }}
+              >
+                <div className="carousel-card-top">
+                  <Icon />
+                  <span>0{index + 1}</span>
+                </div>
+                <strong>{String(value).padStart(2, "0")}</strong>
+                <div className="carousel-card-footer">
+                  <p>{label}</p>
+                </div>
+                <span className="central-scan" aria-hidden />
+              </Link>
+            );
+          })}
+        </div>
+        <div className="carousel-floor" aria-hidden />
+      </div>
+      <div className="carousel-pagination" aria-label="Choose a card">
+        {metrics.map(({ label }, index) => (
+          <button
+            type="button"
+            className={selectedIndex === index ? "active" : ""}
+            onClick={() => rotateTo(index)}
+            aria-label={`Show ${label}`}
+            aria-pressed={selectedIndex === index}
             key={label}
-            onPointerEnter={() => playNote(index)}
           >
-            <Link
-              href={href}
-              className="metric-card"
-              aria-label={`View ${label}. Musical note ${notes[index].name}`}
-              onClick={() => playNote(index)}
-              onFocus={() => playNote(index)}
-            >
-              <div className="metric-card-top">
-                <Icon />
-                <span>0{index + 1}</span>
-              </div>
-              <div className="metric-note" aria-hidden="true">
-                <span className="metric-note-name">{notes[index].name}</span>
-                <span className="metric-wave">
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                </span>
-              </div>
-              <strong>{String(value).padStart(2, "0")}</strong>
-              <p>{label}</p>
-              <ArrowUpRight className="metric-card-arrow" aria-hidden />
-            </Link>
-          </article>
-        );
-      })}
+            <span>{String(index + 1).padStart(2, "0")}</span>
+            {label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
