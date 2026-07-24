@@ -58,28 +58,39 @@ export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
     if (context.state === "suspended") void context.resume();
 
     const now = context.currentTime;
-    const oscillator = context.createOscillator();
-    const overtone = context.createOscillator();
-    const gain = context.createGain();
-    const overtoneGain = context.createGain();
+    const master = context.createGain();
+    const compressor = context.createDynamicsCompressor();
+    const partials = [
+      { ratio: 1, volume: 0.38, decay: 1.35, type: "triangle" },
+      { ratio: 2, volume: 0.16, decay: 0.82, type: "sine" },
+      { ratio: 3, volume: 0.075, decay: 0.52, type: "sine" },
+      { ratio: 4, volume: 0.035, decay: 0.34, type: "sine" },
+    ] as const;
 
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(notes[index].frequency, now);
-    overtone.type = "triangle";
-    overtone.frequency.setValueAtTime(notes[index].frequency * 2, now);
+    master.gain.setValueAtTime(1.28, now);
+    compressor.threshold.setValueAtTime(-12, now);
+    compressor.knee.setValueAtTime(12, now);
+    compressor.ratio.setValueAtTime(4, now);
+    compressor.attack.setValueAtTime(0.003, now);
+    compressor.release.setValueAtTime(0.18, now);
+    master.connect(compressor).connect(context.destination);
 
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.22, now + 0.018);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.62);
-    overtoneGain.gain.setValueAtTime(0.035, now);
-    overtoneGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
+    partials.forEach(({ ratio, volume, decay, type }) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
 
-    oscillator.connect(gain).connect(context.destination);
-    overtone.connect(overtoneGain).connect(context.destination);
-    oscillator.start(now);
-    overtone.start(now);
-    oscillator.stop(now + 0.65);
-    overtone.stop(now + 0.45);
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(notes[index].frequency * ratio, now);
+      oscillator.detune.setValueAtTime(ratio === 1 ? -2 : ratio, now);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(volume, now + 0.006);
+      gain.gain.exponentialRampToValueAtTime(volume * 0.34, now + 0.09);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + decay);
+
+      oscillator.connect(gain).connect(master);
+      oscillator.start(now);
+      oscillator.stop(now + decay + 0.03);
+    });
 
     setActiveNote(index);
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
