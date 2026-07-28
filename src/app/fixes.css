@@ -668,3 +668,24 @@ html:not(.dark) .rich-content a {
   .detail-facts>div { border-bottom:1px solid var(--liquid-line); }
   .detail-body { grid-template-columns:1fr; padding-top:70px; }
 }
+
+/* Flat, translucent teal ripples for Signal / 01 card feedback. */
+.card-click-ripple {
+  border-color:rgba(65,224,207,.7);
+  background:radial-gradient(
+    circle,
+    rgba(55,213,198,.2) 0 7%,
+    rgba(27,189,177,.11) 18%,
+    transparent 44%
+  );
+  box-shadow:
+    0 0 0 .5px rgba(37,190,179,.28),
+    0 0 9px rgba(39,214,199,.3);
+}
+.card-click-ripple::before {
+  border-color:rgba(76,226,211,.58);
+}
+.card-click-ripple::after {
+  background:rgba(47,210,196,.5);
+  box-shadow:0 0 7px rgba(36,207,193,.48);
+}
