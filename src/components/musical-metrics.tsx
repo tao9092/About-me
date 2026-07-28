@@ -196,10 +196,12 @@ export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
       ripple.style.setProperty("--ripple-scale", String(15 + layer * 4));
       ripple.style.setProperty("--ripple-layer", String(layer));
       card.appendChild(ripple);
-      ripple.addEventListener("animationend", () => ripple.remove(), {
-        once: true,
+      ripple.addEventListener("animationend", (animationEvent) => {
+        if (animationEvent.animationName === "card-water-ring") {
+          ripple.remove();
+        }
       });
-      window.setTimeout(() => ripple.remove(), 1400);
+      window.setTimeout(() => ripple.remove(), 2300);
     });
   }
 

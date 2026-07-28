@@ -681,6 +681,8 @@ html:not(.dark) .rich-content a {
   box-shadow:
     0 0 0 .5px rgba(37,190,179,.28),
     0 0 9px rgba(39,214,199,.3);
+  animation-duration:1.65s;
+  animation-timing-function:linear;
 }
 .card-click-ripple::before {
   border-color:rgba(76,226,211,.58);
@@ -688,4 +690,26 @@ html:not(.dark) .rich-content a {
 .card-click-ripple::after {
   background:rgba(47,210,196,.5);
   box-shadow:0 0 7px rgba(36,207,193,.48);
+}
+@keyframes card-water-ring {
+  0% {
+    opacity:0;
+    transform:translate(-50%,-50%) scale(.12);
+  }
+  7% {
+    opacity:.95;
+  }
+  45% {
+    opacity:.52;
+    transform:translate(-50%,-50%) scale(var(--ripple-scale));
+    animation-timing-function:linear;
+  }
+  70% {
+    opacity:.52;
+    transform:translate(-50%,-50%) scale(var(--ripple-scale));
+  }
+  100% {
+    opacity:0;
+    transform:translate(-50%,-50%) scale(var(--ripple-scale));
+  }
 }
