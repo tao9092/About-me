@@ -239,6 +239,44 @@ html:not(.dark) .award-badge { color:#633083; }
   .evidence-dossier h4 { font-size:1.3rem; }
 }
 
+/* Records slide and fade in and out as they scroll through their console (the
+   page on phones), and the consoles do the same with the page. Uses the
+   individual translate property so the hover lift (transform) still applies.
+   Browsers without scroll-driven animations keep them static. */
+/* overflow:hidden would make these scroll containers that capture the view()
+   timelines without ever scrolling; clip crops the same way without that. */
+.auros-home, .evidence-console { overflow:clip; }
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .evidence-dossier {
+      animation: dossier-through linear both;
+      animation-timeline: view();
+    }
+    @media (min-width: 651px) {
+      .evidence-console {
+        animation: console-through linear both;
+        animation-timeline: view();
+      }
+      .project-console { animation-name: console-through-late; }
+    }
+  }
+}
+@keyframes dossier-through {
+  entry 0% { opacity:0;translate:0 42px; }
+  entry 100%, exit 0% { opacity:1;translate:0 0; }
+  exit 100% { opacity:0;translate:0 -42px; }
+}
+@keyframes console-through {
+  entry 0% { opacity:0;translate:0 64px; }
+  entry 45%, exit 60% { opacity:1;translate:0 0; }
+  exit 100% { opacity:0;translate:0 -48px; }
+}
+@keyframes console-through-late {
+  entry 0%, entry 12% { opacity:0;translate:0 64px; }
+  entry 57%, exit 60% { opacity:1;translate:0 0; }
+  exit 100% { opacity:0;translate:0 -48px; }
+}
+
 /* Capabilities: explored fields, four-dimensional bento, and evidence drawer. */
 .capability-atlas { display:grid;gap:18px; }
 .explored-fields { display:grid;grid-template-columns:180px 1fr;gap:22px;align-items:stretch;padding:16px;border:1px solid var(--liquid-line);border-radius:15px;background:rgba(2,45,42,.72); }
