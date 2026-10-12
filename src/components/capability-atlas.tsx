@@ -3,18 +3,19 @@
 import {
   BookOpen,
   BrainCircuit,
-  ChevronLeft,
-  ChevronRight,
   Dumbbell,
   Network,
+  Pause,
+  Play,
+  Volume2,
+  VolumeX,
+  X,
 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import {
-  type CSSProperties,
-  type PointerEvent as ReactPointerEvent,
-  useRef,
-  useState,
-} from "react";
-import { MechanicalClockScene } from "@/components/mechanical-clock-scene";
+  type RangeMode,
+  ShootingRangeScene,
+} from "@/components/shooting-range-scene";
 
 type CapabilityId = "learning" | "adaptive" | "physical" | "social";
 
@@ -100,17 +101,17 @@ function getCapabilityId(categoryValue: string): CapabilityId {
   return "learning";
 }
 
-function normaliseIndex(value: number) {
-  return ((value % capabilities.length) + capabilities.length) %
-    capabilities.length;
-}
-
 export function CapabilityAtlas({ skills }: { skills: Skill[] }) {
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [rotation, setRotation] = useState(0);
-  const [revealed, setRevealed] = useState(false);
-  const dialRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ angle: number; rotation: number } | null>(null);
+  const [detailIndex, setDetailIndex] = useState(0);
+  const [open, setOpen] = useState(false);
+  const [aimedIndex, setAimedIndex] = useState<number | null>(null);
+  const [muted, setMuted] = useState(false);
+  const [mode, setMode] = useState<RangeMode>("idle");
+  const [aimingDownSights, setAimingDownSights] = useState(false);
+  const [locked, setLocked] = useState(false);
+  const resumeRef = useRef<HTMLButtonElement>(null);
+  const openRef = useRef(open);
+  const lockLostAtRef = useRef(0);
 
   const skillsByCapability: Record<CapabilityId, Skill[]> = {
     learning: [],
@@ -122,203 +123,212 @@ export function CapabilityAtlas({ skills }: { skills: Skill[] }) {
     skillsByCapability[getCapabilityId(skill.category)].push(skill);
   });
 
-  const selected = capabilities[selectedIndex];
+  const selected = capabilities[detailIndex];
   const selectedSkills = skillsByCapability[selected.id];
+  const aimed = aimedIndex === null ? null : capabilities[aimedIndex];
 
-  function pointAngle(clientX: number, clientY: number) {
-    const rect = dialRef.current?.getBoundingClientRect();
-    if (!rect) return 0;
-    return (
-      (Math.atan2(
-        clientY - (rect.top + rect.height / 2),
-        clientX - (rect.left + rect.width / 2),
-      ) *
-        180) /
-      Math.PI
-    );
+  function openTarget(index: number) {
+    setDetailIndex(index);
+    setOpen(true);
   }
 
-  function select(index: number) {
-    const nextIndex = normaliseIndex(index);
-    setSelectedIndex(nextIndex);
-    setRotation(-nextIndex * 90);
-    setRevealed(false);
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
+
+  // Losing the pointer lock while playing (Esc) is the pause signal. Opening a
+  // record releases the lock on purpose, so that one does not pause.
+  function handleLockChange(nextLocked: boolean) {
+    setLocked(nextLocked);
+    if (nextLocked) return;
+    lockLostAtRef.current = performance.now();
+    if (openRef.current) return;
+    setMode((current) => (current === "playing" ? "paused" : current));
   }
 
-  function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    dragRef.current = {
-      angle: pointAngle(event.clientX, event.clientY),
-      rotation,
+  function exitRange() {
+    setOpen(false);
+    setMode("idle");
+  }
+
+  // Esc closes an open record first, otherwise pauses. With pointer lock the
+  // browser consumes Esc itself and handleLockChange does the pausing.
+  useEffect(() => {
+    if (!open && mode !== "playing") return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (open) {
+        setOpen(false);
+        return;
+      }
+      if (document.pointerLockElement) return;
+      if (performance.now() - lockLostAtRef.current < 400) return;
+      setMode("paused");
     };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, mode]);
 
-  function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!dragRef.current) return;
-    const nextRotation =
-      dragRef.current.rotation +
-      pointAngle(event.clientX, event.clientY) -
-      dragRef.current.angle;
-    setRotation(nextRotation);
-  }
+  useEffect(() => {
+    if (mode === "paused") resumeRef.current?.focus();
+  }, [mode]);
 
-  function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!dragRef.current) return;
-    dragRef.current = null;
-    event.currentTarget.releasePointerCapture(event.pointerId);
-    const nextIndex = normaliseIndex(-Math.round(rotation / 90));
-    setSelectedIndex(nextIndex);
-    setRotation(-nextIndex * 90);
-    setRevealed(false);
-  }
+  const rootClass = [
+    "capability-range",
+    `is-${mode}`,
+    open ? "is-open" : "",
+    aimingDownSights ? "is-ads" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
-    <div className={`capability-instrument${revealed ? " is-revealed" : ""}`}>
-      <MechanicalClockScene />
-      <div className="capability-watch-stage">
-        <div className="capability-index-readout" aria-live="polite">
-          <span>Selected dimension</span>
-          <strong>{selected.number}</strong>
+    <div className={rootClass}>
+      <ShootingRangeScene
+        targets={capabilities}
+        mode={mode}
+        activeIndex={open ? detailIndex : null}
+        muted={muted}
+        onAim={setAimedIndex}
+        onAds={setAimingDownSights}
+        onHit={openTarget}
+        onLockChange={handleLockChange}
+      />
+
+      <div className="range-hud" aria-hidden>
+        <div className="range-readout">
+          <span>Target lock</span>
+          <strong>{aimed?.number ?? "--"}</strong>
         </div>
+        <div className={`range-crosshair${aimed ? " is-locked" : ""}`}>
+          <i />
+          <i />
+          <i />
+          <i />
+          <b />
+        </div>
+        <div className={`range-aim-label${aimed ? " is-visible" : ""}`}>
+          <span>{aimed?.chineseTitle}</span>
+          <small>{aimed?.title}</small>
+        </div>
+        <p className="range-hint">
+          <span className="range-hint-mouse">
+            Move mouse to look · Click to fire · Right-click to aim · Esc to pause
+          </span>
+          <span className="range-hint-touch">Drag to look · Tap to fire</span>
+        </p>
+      </div>
 
-        <div
-          className="capability-watch"
-          ref={dialRef}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={() => {
-            dragRef.current = null;
-          }}
+      {mode === "playing" && !open && !locked && (
+        <p className="range-relock" aria-hidden>
+          Click to aim
+        </p>
+      )}
+
+      {mode === "playing" && (
+        <button
+          type="button"
+          className="range-pause-button"
+          onClick={() => setMode("paused")}
+          aria-label="Pause the range"
         >
-          <div className="watch-crown watch-crown-top" />
-          <div className="watch-crown watch-crown-bottom" />
-          <div className="watch-bezel">
-            <span className="bezel-screw screw-a" />
-            <span className="bezel-screw screw-b" />
-            <span className="bezel-screw screw-c" />
-            <span className="bezel-screw screw-d" />
-            <div
-              className="watch-dial"
-              style={{ "--dial-rotation": `${rotation}deg` } as CSSProperties}
-            >
-              {Array.from({ length: 48 }, (_, index) => (
-                <i
-                  className={index % 12 === 0 ? "major" : ""}
-                  style={{ "--tick": index } as CSSProperties}
-                  key={index}
-                />
-              ))}
+          <Pause aria-hidden />
+          <span>Esc</span>
+        </button>
+      )}
 
-              {capabilities.map((capability, index) => (
-                <button
-                  type="button"
-                  className={`watch-dimension${selectedIndex === index ? " active" : ""}`}
-                  style={
-                    {
-                      "--dimension-angle": `${index * 90}deg`,
-                      "--label-counter": `${-index * 90 - rotation}deg`,
-                    } as CSSProperties
-                  }
-                  onPointerDown={(event) => event.stopPropagation()}
-                  onClick={() => select(index)}
-                  aria-label={`Select ${capability.title}`}
-                  key={capability.id}
-                >
-                  <span>{capability.number}</span>
-                </button>
-              ))}
+      {mode === "idle" && (
+        <button
+          type="button"
+          className="range-start"
+          onClick={() => setMode("playing")}
+        >
+          <span className="range-start-card">
+            <small>Capability range / 03</small>
+            <strong>Enter the range</strong>
+            <span>
+              Four targets, four dimensions. Aim with your mouse and shoot a
+              sign to open it.
+            </span>
+            <em>
+              <Play aria-hidden /> Click to start
+            </em>
+          </span>
+        </button>
+      )}
 
-              <div className="watch-calibration-arc arc-left" aria-hidden>
-                <span>CAL</span>
-                <i />
-                <i />
-                <i />
-                <i />
-                <i />
-              </div>
-              <div className="watch-calibration-arc arc-right" aria-hidden>
-                <span>SYNC</span>
-                <i />
-                <i />
-                <i />
-                <i />
-                <i />
-              </div>
-
-              <div className="watch-subdial subdial-left" aria-hidden>
-                <span>LOAD</span>
-                <i />
-                <b>72</b>
-              </div>
-              <div className="watch-subdial subdial-right" aria-hidden>
-                <span>FLOW</span>
-                <i />
-                <b>∞</b>
-              </div>
-
-              <div className="watch-date-window" aria-hidden>
-                <span>DIM</span>
-                <strong>{selected.number}</strong>
-              </div>
-              <div className="watch-microcopy watch-microcopy-top" aria-hidden>
-                FOUR DIMENSION / CALIBRATED
-              </div>
-              <div className="watch-microcopy watch-microcopy-bottom" aria-hidden>
-                ADAPTIVE SYSTEM · 04 AXIS
-              </div>
-              <div className="watch-gear gear-one" aria-hidden><i /></div>
-              <div className="watch-gear gear-two" aria-hidden><i /></div>
-            </div>
-
-            <div className="watch-selection-needle" aria-hidden>
-              <span />
-            </div>
-            <div className="watch-hands" aria-hidden>
-              <i className="watch-hour-hand" />
-              <i className="watch-minute-hand" />
-              <i className="watch-second-hand" />
-              <b />
-            </div>
-
-            <div className="watch-center">
-              <span>FICT / ME</span>
+      {mode === "paused" && (
+        <div className="range-pause" role="dialog" aria-modal="true" aria-label="Paused">
+          <div className="range-pause-card">
+            <small>Paused · 已暂停</small>
+            <strong>Take a breath.</strong>
+            <div className="range-pause-actions">
               <button
                 type="button"
-                onPointerDown={(event) => event.stopPropagation()}
-                onClick={() => setRevealed((current) => !current)}
-                aria-label={revealed ? "Hide capability details" : "Show capability details"}
+                className="range-pause-primary"
+                ref={resumeRef}
+                onClick={() => setMode("playing")}
               >
-                <selected.Icon aria-hidden />
-                <small>{revealed ? "Close" : "Enter"}</small>
+                Resume
               </button>
-              <em>{selected.chineseTitle}</em>
+              <button type="button" onClick={exitRange}>
+                Exit range
+              </button>
             </div>
+            <span>Resume locks the mouse back into the range.</span>
           </div>
         </div>
+      )}
 
-        <div className="capability-watch-controls">
-          <button type="button" onClick={() => select(selectedIndex - 1)} aria-label="Previous dimension">
-            <ChevronLeft aria-hidden />
-          </button>
-          <span>Drag to rotate · Press centre to open</span>
-          <button type="button" onClick={() => select(selectedIndex + 1)} aria-label="Next dimension">
-            <ChevronRight aria-hidden />
-          </button>
+      <div className="range-controls">
+        <button
+          type="button"
+          className="range-sound"
+          onClick={() => setMuted((current) => !current)}
+          aria-label={muted ? "Unmute shots" : "Mute shots"}
+          aria-pressed={muted}
+        >
+          {muted ? <VolumeX aria-hidden /> : <Volume2 aria-hidden />}
+        </button>
+        <div className="range-shortcuts" role="group" aria-label="Open a capability directly">
+          {capabilities.map((capability, index) => (
+            <button
+              type="button"
+              onClick={() => openTarget(index)}
+              aria-label={`Open ${capability.title}`}
+              key={capability.id}
+            >
+              {capability.number}
+            </button>
+          ))}
         </div>
       </div>
 
-      <section className="capability-watch-detail" aria-hidden={!revealed}>
-        <div className="watch-detail-head">
-          <span>Dimension / {selected.number}</span>
-          <selected.Icon aria-hidden />
+      <section
+        className="range-detail"
+        aria-label={`${selected.title} details`}
+        inert={!open}
+      >
+        <div className="range-detail-head">
+          <div>
+            <selected.Icon aria-hidden />
+            <span>Dimension / {selected.number}</span>
+          </div>
+          <button
+            type="button"
+            className="range-close"
+            onClick={() => setOpen(false)}
+            aria-label="Close capability details"
+          >
+            <X aria-hidden />
+          </button>
         </div>
-        <p>{selected.chineseTitle}</p>
+        <p className="range-detail-cn">{selected.chineseTitle}</p>
         <h3>{selected.title}</h3>
         <strong>{selected.statement}</strong>
-        <p className="watch-detail-description">{selected.description}</p>
+        <p className="range-detail-description">{selected.description}</p>
 
-        <div className="watch-detail-fields">
+        <div className="range-detail-fields">
           <div>
             <span>Current fields</span>
             <span>{String(selectedSkills.length).padStart(2, "0")}</span>
@@ -335,7 +345,7 @@ export function CapabilityAtlas({ skills }: { skills: Skill[] }) {
               </article>
             ))
           ) : (
-            <div className="watch-detail-empty">
+            <div className="range-detail-empty">
               Evidence for this dimension is being prepared.
             </div>
           )}
