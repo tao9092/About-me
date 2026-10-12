@@ -11,10 +11,22 @@ export type ShutterMessage =
   | { type: "phase"; phase: ShutterPhase }
   | { type: "resize"; size: ShutterSize }
   | { type: "stop" }
-  | { type: "warm"; size: ShutterSize };
+  | { type: "warm"; size: ShutterSize }
+  // The visitor scrolled, tapped or typed: warming waits for them to pause.
+  | { type: "activity" };
 
 let canvas: OffscreenCanvas | null = null;
 let current: ShutterControl | null = null;
+let warming: Promise<void> | null = null;
+let lastActivity = -Infinity;
+const QUIET_MS = 1200;
+// An effect warms only while no shutter plays and the visitor has been still a
+// moment: warming takes the GPU briefly, which would catch a scroll or a tap.
+const quietTurn = () =>
+  new Promise<void>((resolve) => {
+    const check = () => (current === null && performance.now() - lastActivity > QUIET_MS ? resolve() : setTimeout(check, 200));
+    setTimeout(check, 150);
+  });
 self.addEventListener("message", (event: MessageEvent<ShutterMessage>) => {
   const message = event.data;
   if (message.type === "start") {
@@ -26,5 +38,6 @@ self.addEventListener("message", (event: MessageEvent<ShutterMessage>) => {
   else if (message.type === "stop") {
     current?.stop();
     current = null;
-  } else if (message.type === "warm" && !current) warmFx(message.size);
+  } else if (message.type === "activity") lastActivity = performance.now();
+  else if (message.type === "warm") warming ??= warmFx(message.size, quietTurn);
 });

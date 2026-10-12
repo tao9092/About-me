@@ -13,20 +13,52 @@ export function shader(name: string, fragment: string, uniformNames: string[]): 
   const cached = shaders.get(name);
   if (cached && cached.gl.isContextLost()) shaders.delete(name); // the GPU was reset: build it again
   else if (cached !== undefined) return cached;
-  const built = build(fragment, uniformNames);
+  const started = start(fragment);
+  const built = started && finish(started, uniformNames);
   shaders.set(name, built);
   return built;
 }
-function build(fragment: string, uniformNames: string[]): Shader | null {
+
+/** Compiles a shader ahead of its first shutter. Where the browser compiles in the
+ * background (KHR_parallel_shader_compile) this waits without asking for the
+ * result, because asking holds up the GPU, and every page on screen with it,
+ * until the compile is done. Elsewhere it compiles just as shader() does. */
+export function prepareShader(name: string, fragment: string, uniformNames: string[]): Promise<void> {
+  const cached = shaders.get(name);
+  if (cached === null || (cached && !cached.gl.isContextLost())) return Promise.resolve();
+  const started = start(fragment);
+  if (!started) {
+    shaders.set(name, null);
+    return Promise.resolve();
+  }
+  const parallel = started.gl.getExtension("KHR_parallel_shader_compile");
+  return new Promise((resolve) => {
+    const settle = () => {
+      // A shutter that needed it meanwhile has built its own; keep that one.
+      if (!shaders.get(name)) shaders.set(name, finish(started, uniformNames));
+      resolve();
+    };
+    if (!parallel) return settle();
+    const poll = () =>
+      started.gl.getProgramParameter(started.program, parallel.COMPLETION_STATUS_KHR) ? settle() : setTimeout(poll, 30);
+    poll();
+  });
+}
+
+type Started = { canvas: HTMLCanvasElement; gl: WebGLRenderingContext; program: WebGLProgram; parts: WebGLShader[] };
+/** Makes the canvas and sends the shader off to compile and link, without
+ * waiting on either. */
+function start(fragment: string): Started | null {
   const canvas = makeCanvas(2, 2);
   const gl = canvas.getContext("webgl", { alpha: false, antialias: false, depth: false, premultipliedAlpha: false });
   if (!gl) return null;
   const compile = (type: number, source: string) => {
     const part = gl.createShader(type);
-    if (!part) return null;
-    gl.shaderSource(part, source);
-    gl.compileShader(part);
-    return gl.getShaderParameter(part, gl.COMPILE_STATUS) ? part : null;
+    if (part) {
+      gl.shaderSource(part, source);
+      gl.compileShader(part);
+    }
+    return part;
   };
   const vertex = compile(gl.VERTEX_SHADER, VERTEX);
   const pixels = compile(gl.FRAGMENT_SHADER, fragment);
@@ -35,9 +67,14 @@ function build(fragment: string, uniformNames: string[]): Shader | null {
   gl.attachShader(program, vertex);
   gl.attachShader(program, pixels);
   gl.linkProgram(program);
+  return { canvas, gl, program, parts: [vertex, pixels] };
+}
+/** Checks the compiled shader and readies it to draw one triangle that covers
+ * the whole viewport. */
+function finish({ canvas, gl, program, parts }: Started, uniformNames: string[]): Shader | null {
+  if (!parts.every((part) => gl.getShaderParameter(part, gl.COMPILE_STATUS))) return null;
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return null;
   gl.useProgram(program);
-  // One triangle that covers the whole viewport.
   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
   const corner = gl.getAttribLocation(program, "corner");

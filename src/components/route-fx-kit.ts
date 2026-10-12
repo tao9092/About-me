@@ -254,6 +254,9 @@ export function terminal(ctx: CanvasRenderingContext2D, frame: FxFrame, effect: 
   ];
   let budget = time * 150; // characters typed so far
   const size = Math.max(10, Math.min(12, frame.w / 110));
+  // On a phone the title card takes the foot of the frame, so the log runs
+  // from the top instead, under the nav bar.
+  const narrow = frame.w < 700;
   ctx.font = `${size}px ${MONO}`;
   ctx.globalCompositeOperation = "source-over";
   const alpha = done ? 1 - easeIn(p) : 1;
@@ -261,7 +264,7 @@ export function terminal(ctx: CanvasRenderingContext2D, frame: FxFrame, effect: 
     if (budget <= 0 || !line) return;
     const text = line.slice(0, Math.floor(budget));
     budget -= line.length;
-    const y = h - 26 - (lines.length - 1 - index) * (size + 6);
+    const y = narrow ? 92 + index * (size + 6) : h - 26 - (lines.length - 1 - index) * (size + 6);
     ctx.globalAlpha = 0.9 * alpha;
     ctx.fillStyle = line.startsWith("$") ? "#ffffff" : `rgb(${color})`;
     ctx.fillText(text, 24, y);

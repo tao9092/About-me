@@ -18,7 +18,7 @@ export function CertificatePreview({ src, alt }: { src: string; alt: string }) {
       <button type="button" onClick={() => setOpen(true)} aria-label="Open certificate image preview">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={src} alt={alt} loading="lazy" />
-        <span><Maximize2 /> Click to enlarge</span>
+        <span><Maximize2 /> <b className="hint-mouse">Click to enlarge</b><b className="hint-touch">Tap to enlarge</b></span>
       </button>
     </section>
     {open && <div className="certificate-lightbox" role="dialog" aria-modal="true" aria-label={`${alt} enlarged preview`} onClick={() => setOpen(false)}>

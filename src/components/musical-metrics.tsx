@@ -49,11 +49,19 @@ export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [waveIndex, setWaveIndex] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  // Restarts the carousel's animation after it has come to rest.
+  const wakeRef = useRef<() => void>(() => undefined);
 
+  // The carousel animates only while it moves: a drag, a throw coasting out, or
+  // a snap to the nearest card. At rest it stops asking for frames, and a card's
+  // styles are written only when its place on the ring has changed.
   useEffect(() => {
     const reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
+    let running = false;
+    let lastSpread = 0;
+    const lastPositions: number[] = [];
 
     const animate = () => {
       if (!dragging.current) {
@@ -94,6 +102,7 @@ export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
         waveTimer.current = setTimeout(() => setWaveIndex(null), 720);
       }
 
+      const spread = window.innerWidth <= 650 ? 58 : 72;
       cards.current.forEach((card, index) => {
         if (!card) return;
         const rawPosition = index + rotation.current / STEP;
@@ -102,8 +111,9 @@ export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
             metrics.length) %
             metrics.length) -
           metrics.length / 2;
+        if (position === lastPositions[index] && spread === lastSpread) return;
+        lastPositions[index] = position;
         const distance = Math.abs(position);
-        const spread = window.innerWidth <= 650 ? 58 : 72;
         const depth = distance * 115;
         const drop = distance * 27;
         const tilt = -position * 24;
@@ -118,12 +128,29 @@ export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
         card.style.filter = `blur(${blur}px) brightness(${brightness}) saturate(${saturation})`;
         card.style.opacity = String(Math.max(opacity, 0.38));
       });
+      lastSpread = spread;
 
+      const resting =
+        !dragging.current &&
+        snapTarget.current === null &&
+        velocity.current === 0;
+      if (resting) {
+        running = false;
+        return;
+      }
       animationFrame.current = requestAnimationFrame(animate);
     };
-
-    animationFrame.current = requestAnimationFrame(animate);
+    const wake = () => {
+      if (running) return;
+      running = true;
+      animationFrame.current = requestAnimationFrame(animate);
+    };
+    wakeRef.current = wake;
+    wake();
+    window.addEventListener("resize", wake);
     return () => {
+      running = false;
+      window.removeEventListener("resize", wake);
       if (animationFrame.current) cancelAnimationFrame(animationFrame.current);
       if (waveTimer.current) clearTimeout(waveTimer.current);
     };
@@ -133,6 +160,7 @@ export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
     velocity.current = 0;
     const baseTarget = -index * STEP;
     snapTarget.current = nearestEquivalent(rotation.current, baseTarget);
+    wakeRef.current();
     selectedRef.current = index;
     setSelectedIndex(index);
   }
@@ -219,6 +247,7 @@ export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
       time: event.timeStamp,
     };
     velocity.current = 0;
+    wakeRef.current();
   }
 
   function moveCarousel(event: React.PointerEvent<HTMLDivElement>) {

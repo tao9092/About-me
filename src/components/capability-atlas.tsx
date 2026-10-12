@@ -238,7 +238,8 @@ export function CapabilityAtlas({ skills }: { skills: Skill[] }) {
           aria-label="Pause the range"
         >
           <Pause aria-hidden />
-          <span>Esc</span>
+          <span className="hint-mouse">Esc</span>
+          <span className="hint-touch">Pause</span>
         </button>
       )}
 
@@ -252,11 +253,17 @@ export function CapabilityAtlas({ skills }: { skills: Skill[] }) {
             <small>Capability range / 03</small>
             <strong>Enter the range</strong>
             <span>
-              Four targets, four dimensions. Aim with your mouse and shoot a
-              sign to open it.
+              Four targets, four dimensions.{" "}
+              <span className="hint-mouse">
+                Aim with your mouse and shoot a sign to open it.
+              </span>
+              <span className="hint-touch">
+                Drag sideways to aim and tap to shoot a sign open.
+              </span>
             </span>
             <em>
-              <Play aria-hidden /> Click to start
+              <Play aria-hidden /> <span className="hint-mouse">Click to start</span>
+              <span className="hint-touch">Tap to start</span>
             </em>
           </span>
         </button>
@@ -280,7 +287,8 @@ export function CapabilityAtlas({ skills }: { skills: Skill[] }) {
                 Exit range
               </button>
             </div>
-            <span>Resume locks the mouse back into the range.</span>
+            <span className="hint-mouse">Resume locks the mouse back into the range.</span>
+            <span className="hint-touch">Drag sideways to aim · Tap to fire</span>
           </div>
         </div>
       )}

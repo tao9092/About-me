@@ -7,6 +7,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { notFound } from "next/navigation";
+import type { CSSProperties } from "react";
 import { getPublicContent, type EntityTable } from "@/lib/content";
 import { sanitizeRichText } from "@/lib/sanitize";
 import { Badge } from "@/components/ui";
@@ -41,6 +42,11 @@ export async function PublicDetail({
       typeof item[1] === "string" && item[1].length > 0,
   );
   const content = String(row.content_en ?? "");
+  const title = String(row.title_en);
+  // On phones the headline is sized so its longest word fits the width, and
+  // long titles come down a step so they don't run to many lines.
+  const longest = Math.max(1, ...title.split(/[\s-]+/).map((word) => word.length));
+  const titleVw = Math.min(17, 90 / (longest * 0.48), title.length > 40 ? 13 : title.length > 26 ? 15 : 17);
   return (
     <article className="public-detail">
       <Link className="detail-back" href={meta.back}>
@@ -52,7 +58,7 @@ export async function PublicDetail({
             <Badge>{meta.label}</Badge>
             {Boolean(row.is_demo) && <Badge tone="warning">Demo data</Badge>}
           </div>
-          <h1>{String(row.title_en)}</h1>
+          <h1 style={{ "--title-vw": titleVw.toFixed(2) } as CSSProperties}>{title}</h1>
           <p>{String(row.summary_en ?? "")}</p>
         </div>
         <div className="detail-index">

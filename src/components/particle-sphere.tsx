@@ -73,6 +73,50 @@ export function ParticleSphere({
     const gatherStart =
       (introStart !== undefined && Number.isFinite(introStart) ? introStart : performance.now()) + GATHER_DELAY;
     const counts = { high: 1800, medium: 720, low: 360 };
+    // Each frame the dots are grouped by colour and opacity, and every group is
+    // filled in one call instead of one call per dot. The canvas stores colours
+    // at 8 bits a channel, so taking the opacity to the nearest 1/255 leaves the
+    // picture as it was; it only turns ~1,800 fills into a few dozen.
+    const inks = [...palette, [24, 44, 68] as const];
+    const LIGHT_INK = palette.length;
+    const styles: string[] = [];
+    const style = (key: number) =>
+      (styles[key] ??= `rgba(${inks[key >> 8].join(",")},${(key & 255) / 255})`);
+    const coreCounts = new Int32Array(inks.length * 256);
+    const glowCounts = new Int32Array(inks.length * 256);
+    let px = new Float32Array(0),
+      py = new Float32Array(0),
+      pr = new Float32Array(0),
+      coreKeys = new Int32Array(0),
+      glowKeys = new Int32Array(0),
+      order = new Int32Array(0);
+    function fillGroups(keys: Int32Array, groups: Int32Array, grow: number) {
+      let total = 0;
+      for (let key = 0; key < groups.length; key += 1) {
+        const size = groups[key];
+        groups[key] = total;
+        total += size;
+      }
+      for (let index = 0; index < keys.length; index += 1) {
+        const key = keys[index];
+        if (key >= 0) order[groups[key]++] = index;
+      }
+      let start = 0;
+      for (let key = 0; key < groups.length; key += 1) {
+        const end = groups[key];
+        if (end === start) continue;
+        context.fillStyle = style(key);
+        context.beginPath();
+        for (let at = start; at < end; at += 1) {
+          const index = order[at],
+            radius = pr[index] * grow;
+          context.moveTo(px[index] + radius, py[index]);
+          context.arc(px[index], py[index], radius, 0, Math.PI * 2);
+        }
+        context.fill();
+        start = end;
+      }
+    }
     function rebuild() {
       const r = container.getBoundingClientRect();
       w = Math.max(1, r.width);
@@ -110,6 +154,12 @@ export function ParticleSphere({
           color: i % palette.length,
         };
       });
+      px = new Float32Array(count);
+      py = new Float32Array(count);
+      pr = new Float32Array(count);
+      coreKeys = new Int32Array(count);
+      glowKeys = new Int32Array(count);
+      order = new Int32Array(count);
       if (gathering) {
         const reach = Math.hypot(w, h) * 0.75;
         for (const p of points) {
@@ -146,14 +196,17 @@ export function ParticleSphere({
         c = Math.cos(rot),
         s = Math.sin(rot),
         k = still ? 0 : pull(performance.now());
-      for (const p of points) {
+      coreCounts.fill(0);
+      glowCounts.fill(0);
+      for (let index = 0; index < points.length; index += 1) {
+        const p = points[index];
         const tx = cx + p.hx * c - p.z * unit * 0.16 * s,
           ty = cy + p.hy,
           rz = (p.hx / unit) * s + p.z * c;
         if (!still) {
           const dx = p.x - pointer.x,
             dy = p.y - pointer.y,
-            dist = Math.hypot(dx, dy) || 1,
+            dist = Math.sqrt(dx * dx + dy * dy) || 1,
             range = unit * 0.42;
           if (pointer.active && dist < range) {
             const f = (1 - dist / range) * pointer.power,
@@ -173,30 +226,34 @@ export function ParticleSphere({
           p.x = tx;
           p.y = ty;
         }
-        const speed = Math.min(1, Math.hypot(p.vx, p.vy) / 5),
-          colorIndex =
-            p.energy > 0.18
+        const speed = Math.min(1, Math.sqrt(p.vx * p.vx + p.vy * p.vy) / 5),
+          colorIndex = lightTheme
+            ? LIGHT_INK
+            : p.energy > 0.18
               ? Math.min(
                   palette.length - 1,
                   Math.floor(p.energy * (palette.length - 1)),
                 )
               : p.color;
-        const col = lightTheme
-            ? ([24, 44, 68] as const)
-            : palette[colorIndex],
-          alpha = Math.min(0.96, 0.3 + (rz + 1) * 0.25 + p.energy * 0.35),
+        const alpha = Math.min(0.96, 0.3 + (rz + 1) * 0.25 + p.energy * 0.35),
           radius = p.size * (0.75 + (rz + 1) * 0.23 + speed * 0.65);
-        context.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},${alpha})`;
-        context.beginPath();
-        context.arc(p.x, p.y, Math.max(0.5, radius), 0, Math.PI * 2);
-        context.fill();
+        px[index] = p.x;
+        py[index] = p.y;
+        pr[index] = Math.max(0.5, radius);
+        const core = colorIndex * 256 + Math.round(alpha * 255);
+        coreKeys[index] = core;
+        coreCounts[core] += 1;
+        // A faint halo around the bright and near-side dots.
         if ((p.energy > 0.38 || rz > 0.72) && radius > 1) {
-          context.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},${alpha * 0.1})`;
-          context.beginPath();
-          context.arc(p.x, p.y, radius * 4, 0, Math.PI * 2);
-          context.fill();
+          const glow = colorIndex * 256 + Math.round(alpha * 0.1 * 255);
+          glowKeys[index] = glow;
+          glowCounts[glow] += 1;
+        } else {
+          glowKeys[index] = -1;
         }
       }
+      fillGroups(coreKeys, coreCounts, 1);
+      fillGroups(glowKeys, glowCounts, 4);
     }
     function loop(t: number) {
       time = t;
@@ -270,7 +327,8 @@ export function ParticleSphere({
     >
       <canvas ref={canvasRef} />
       <span className="particle-hint" aria-hidden>
-        Move to disrupt · Click to burst
+        <span className="hint-mouse">Move to disrupt · Click to burst</span>
+        <span className="hint-touch">Swipe across to disrupt · Tap to burst</span>
       </span>
     </div>
   );

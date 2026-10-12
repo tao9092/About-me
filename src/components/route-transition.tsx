@@ -12,6 +12,7 @@ import {
 } from "react";
 import type { FxName } from "@/components/route-fx";
 import { runShutter, type ShutterControl, type ShutterSize } from "@/components/route-fx-runner";
+import { playShutterSound, primeSound, type Score } from "@/components/route-sfx";
 import type { ShutterMessage } from "@/components/route-fx-worker";
 import { ScrambleText } from "@/components/scramble-text";
 
@@ -35,6 +36,8 @@ const VARIANTS: Record<ShutterVariant, { kicker: string; cover: number; reveal: 
   blackhole: { kicker: "Event horizon", cover: 700, reveal: 1100 },
   vinyl: { kicker: "Now playing", cover: 760, reveal: 1100 },
 };
+/** The name of the scene a variant plays, as its title card shows it. */
+export const shutterKicker = (variant: ShutterVariant) => VARIANTS[variant].kicker;
 const MIN_HOLD_MS = 240; // keep the destination readable at least this long
 const GIVE_UP_MS = 8000; // reveal anyway if the route never commits
 
@@ -119,6 +122,7 @@ export function RouteTransitionProvider({ children }: { children: ReactNode }) {
   const phaseRef = useRef<Phase>("idle");
   const coveredAt = useRef(0);
   const timers = useRef<number[]>([]);
+  const sound = useRef<Score | null>(null);
 
   const go = useCallback((next: Phase) => {
     phaseRef.current = next;
@@ -132,9 +136,12 @@ export function RouteTransitionProvider({ children }: { children: ReactNode }) {
     (variant: ShutterVariant) => {
       if (phaseRef.current !== "wait") return;
       go("reveal");
+      sound.current?.reveal();
       later(() => {
         go("idle");
         setTarget(null);
+        sound.current?.end();
+        sound.current = null;
       }, VARIANTS[variant].reveal);
     },
     [go, later],
@@ -142,11 +149,18 @@ export function RouteTransitionProvider({ children }: { children: ReactNode }) {
 
   const begin = useCallback(
     (next: RouteTarget) => {
-      if (phaseRef.current !== "idle") return true; // ignore clicks mid-transition
+      // While a navigation is under way (covering, or waiting for the page) further
+      // clicks are ignored; once the page is opening up they start the next one.
+      if (phaseRef.current === "cover" || phaseRef.current === "wait") return true;
       if (next.href === pathname) return false;
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
+      // The last shutter's timers (its reveal, its give-up) mustn't fire into this one.
+      timers.current.forEach((id) => window.clearTimeout(id));
+      timers.current.length = 0;
       setTarget(next);
       go("cover");
+      // Still inside the click, which browsers need before a page plays sound.
+      sound.current = playShutterSound(next.variant, VARIANTS[next.variant]);
       later(() => {
         coveredAt.current = performance.now();
         go("wait");
@@ -183,18 +197,44 @@ export function RouteTransitionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const pending = timers.current;
-    return () => pending.forEach((id) => window.clearTimeout(id));
+    const score = sound;
+    return () => {
+      pending.forEach((id) => window.clearTimeout(id));
+      score.current?.end();
+    };
   }, []);
 
   // Once the page has settled, start the worker and let it build every effect's
   // sprites and shaders, so the first shutter doesn't stall while they're made.
+  // It builds them while the visitor pauses, so it's told when they scroll, tap
+  // or type.
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const id = window.setTimeout(() => {
       const worker = getShutterWorker();
       if (worker) post(worker, { type: "warm", size: shutterSize() });
     }, 2500);
-    return () => window.clearTimeout(id);
+    let told = 0;
+    const active = () => {
+      if (!shutterWorker || performance.now() - told < 250) return;
+      told = performance.now();
+      post(shutterWorker, { type: "activity" });
+    };
+    const inputs = ["scroll", "wheel", "touchstart", "pointerdown", "keydown"] as const;
+    for (const type of inputs) window.addEventListener(type, active, { capture: true, passive: true });
+    // The visitor's first tap or key readies the sound (browsers allow audio only
+    // after one), so the first shutter's click doesn't wait on it.
+    const gestures = ["pointerup", "keydown"] as const;
+    const prime = () => {
+      primeSound();
+      for (const type of gestures) window.removeEventListener(type, prime, { capture: true });
+    };
+    for (const type of gestures) window.addEventListener(type, prime, { capture: true, passive: true });
+    return () => {
+      window.clearTimeout(id);
+      for (const type of inputs) window.removeEventListener(type, active, { capture: true });
+      for (const type of gestures) window.removeEventListener(type, prime, { capture: true });
+    };
   }, []);
 
   return (

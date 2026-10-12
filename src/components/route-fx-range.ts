@@ -476,9 +476,12 @@ export function range(): Fx {
         ctx.restore();
 
         // The round: drifting forward across the frame, turning slowly in slow motion.
+        // On a phone held upright it flies shorter and further left, leaving room
+        // for the king to come up in frame.
         spin += dt * 2.2;
-        const length = Math.min(w * (w < h ? 0.8 : 0.36), h * 0.7);
-        const bx = lerp(w * 0.34, w * 0.58, easeIn(t));
+        const upright = w < h;
+        const length = Math.min(w * (upright ? 0.5 : 0.36), h * 0.7);
+        const bx = upright ? lerp(w * 0.2, w * 0.32, easeIn(t)) : lerp(w * 0.34, w * 0.58, easeIn(t));
         const by = h * 0.5 + Math.sin(time * 1.7) * h * 0.004;
         const tip = bx + length / 2;
         const base = bx - length / 2;
@@ -555,7 +558,7 @@ export function range(): Fx {
 
         // The king comes up on the right just before the hit; the round takes it
         // in the head and it bursts into pieces flung on along the shot.
-        const kingHeight = h * 0.85;
+        const kingHeight = Math.min(h * 0.85, w * 1.1);
         const kingFoot = by + CROWN * kingHeight;
         const kingX = lerp(w * 1.3, tip + kingHeight * 0.15, easeOut(clamp01((t - 0.6) / 0.4)));
         if (t > 0.6 && p < IMPACT) drawKing(ctx, kingX, kingFoot, kingHeight);

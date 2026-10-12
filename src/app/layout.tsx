@@ -36,7 +36,9 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('theme');var d=t?t==='dark':true;document.documentElement.classList.toggle('dark',d);document.documentElement.style.colorScheme=d?'dark':'light'}catch(e){document.documentElement.classList.add('dark')}})()`,
+            // Applies the saved theme before paint, and tints the phone's browser
+            // bar to match (public-nav.tsx keeps it in step when toggled).
+            __html: `(function(){var d=true;try{var t=localStorage.getItem('theme');d=t?t==='dark':true}catch(e){}document.documentElement.classList.toggle('dark',d);document.documentElement.style.colorScheme=d?'dark':'light';var m=document.createElement('meta');m.name='theme-color';m.content=d?'#012624':'#f7fafb';document.head.appendChild(m)})()`,
           }}
         />
       </head>

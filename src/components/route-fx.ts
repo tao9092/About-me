@@ -6,9 +6,9 @@
 // shared film look.
 import { releaseStage } from "@/components/route-fx-3d";
 import { blackhole } from "@/components/route-fx-blackhole";
-import { cassini } from "@/components/route-fx-cassini";
+import { cassini, prepareCassini } from "@/components/route-fx-cassini";
 import { circuit } from "@/components/route-fx-circuit";
-import { gargantua } from "@/components/route-fx-gargantua";
+import { gargantua, prepareGargantua } from "@/components/route-fx-gargantua";
 import { releaseShaders } from "@/components/route-fx-gl";
 import { type Fx, makeCanvas, releaseFilmLook, setViewport } from "@/components/route-fx-kit";
 import { rail } from "@/components/route-fx-rail";
@@ -36,13 +36,19 @@ export function releaseFx() {
   releaseShaders();
 }
 
-/** Draws one frame of every effect on a scratch surface, so their sprites and the
- * black hole's shader are ready before the first shutter. Meant for the worker. */
-export function warmFx(size: { w: number; h: number; dpr: number }) {
-  setViewport(size.w, size.h);
+/** Gets every effect ready before its first shutter: the ray-traced shaders
+ * compile in the background, then each effect draws one frame on a scratch
+ * surface to build its sprites. Building them keeps the GPU busy for a moment, so
+ * each effect waits its turn (when nothing else needs the GPU). Meant for the
+ * worker. */
+export async function warmFx(size: { w: number; h: number; dpr: number }, turn: () => Promise<void>) {
+  await turn();
+  await Promise.all([prepareCassini(), prepareGargantua()]);
   const ctx = makeCanvas(Math.round(size.w * size.dpr), Math.round(size.h * size.dpr)).getContext("2d");
   if (!ctx) return;
   for (const create of Object.values(createFx)) {
+    await turn();
+    setViewport(size.w, size.h);
     ctx.setTransform(size.dpr, 0, 0, size.dpr, 0, 0);
     create()(ctx, { phase: "wait", p: 0, time: 0, dt: 1 / 60, w: size.w, h: size.h, route: "/" });
   }

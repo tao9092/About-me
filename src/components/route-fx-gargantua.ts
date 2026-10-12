@@ -25,7 +25,7 @@ import {
   TAU,
   terminal,
 } from "@/components/route-fx-kit";
-import { render, shader } from "@/components/route-fx-gl";
+import { prepareShader, render, shader } from "@/components/route-fx-gl";
 
 // Photons follow x'' = -1.5 h² x / r⁵ (h = |x × v|), the Schwarzschild orbit
 // equation written as a force in flat space; each ray is stepped until it falls
@@ -122,9 +122,13 @@ const cross = (a: Vec, b: Vec): Vec => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] -
 const SECTIONS = ["Projects", "Competitions", "Certificates", "Experience", "Index"];
 const SHADOW = 2.6; // apparent radius of the shadow, seen from afar
 
+const UNIFORMS = ["resolution", "time", "eye", "right", "up", "forward", "tanHalf", "glow", "fall"];
+/** Compiles the black hole shader in the background, before the first shutter needs it. */
+export const prepareGargantua = () => prepareShader("gargantua", FRAGMENT, UNIFORMS);
+
 /** The ray-traced black hole, or the given flat version where WebGL is missing. */
 export function gargantua(flat: () => Fx): Fx {
-  const gpu = shader("gargantua", FRAGMENT, ["resolution", "time", "eye", "right", "up", "forward", "tanHalf", "glow", "fall"]);
+  const gpu = shader("gargantua", FRAGMENT, UNIFORMS);
   if (!gpu) return flat();
   const look: Look = { tint: "255,178,110", light: [0.5, 0.48], bloom: 0.7, haze: 0.05, dust: motes(30), vignette: 0.6 };
   const orbit = SECTIONS.map((label, index) => ({ label, angle: (index / SECTIONS.length) * TAU }));

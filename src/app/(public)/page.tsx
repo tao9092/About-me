@@ -13,6 +13,11 @@ import { MusicalMetrics } from "@/components/musical-metrics";
 import { ScrambleText } from "@/components/scramble-text";
 import { CapabilityAtlas } from "@/components/capability-atlas";
 import { SignalCosmos } from "@/components/signal-cosmos";
+import { EvidenceRail } from "@/components/evidence-rail";
+
+// Records decode one after another as they first come into view; later ones
+// share the last delay, so a record reached by scrolling decodes at once.
+const stagger = (index: number) => Math.min(index, 3) * 90;
 
 export default async function Home() {
   const [profile, stats, competitions, projects, skills] =
@@ -103,6 +108,11 @@ export default async function Home() {
       </section>
 
       <section className="signal-section" id="signal">
+        <div className="signal-stars" aria-hidden>
+          <i />
+          <i />
+          <i />
+        </div>
         <SignalCosmos />
         <Reveal>
           <div className="auros-section-head">
@@ -146,10 +156,9 @@ export default async function Home() {
               <strong>{String(competitions.length).padStart(2, "0")}</strong>
               <Link href="/competitions">View index</Link>
             </header>
-            <div
-              className="evidence-console-scroll"
-              tabIndex={0}
-              aria-label="All competition records"
+            <EvidenceRail
+              label="All competition records"
+              count={competitions.length}
             >
               {competitions.map((item, index) => (
                 <Link
@@ -162,26 +171,26 @@ export default async function Home() {
                       COMP /{" "}
                       <ScrambleText
                         text={String(index + 1).padStart(2, "0")}
-                        delay={index * 90}
+                        delay={stagger(index)}
                       />
                     </span>
                     <em>
                       <ScrambleText
                         text={String(item.competition_date ?? "").slice(0, 4)}
-                        delay={260 + index * 90}
+                        delay={260 + stagger(index)}
                       />
                     </em>
                   </div>
                   <h4>
                     <ScrambleText
                       text={String(item.title_en)}
-                      delay={70 + index * 90}
+                      delay={70 + stagger(index)}
                     />
                   </h4>
                   <p className="dossier-meta">
                     <ScrambleText
                       text={String(item.organizer ?? "Competition")}
-                      delay={140 + index * 90}
+                      delay={140 + stagger(index)}
                     />
                   </p>
                   <div
@@ -194,7 +203,7 @@ export default async function Home() {
                         <span className="result-label">Result /</span>
                         <ScrambleText
                           text={String(item.placement)}
-                          delay={200 + index * 90}
+                          delay={200 + stagger(index)}
                           className="result-value"
                         />
                       </span>
@@ -205,7 +214,7 @@ export default async function Home() {
                         <span className="result-label">Award /</span>
                         <ScrambleText
                           text={String(item.award)}
-                          delay={230 + index * 90}
+                          delay={230 + stagger(index)}
                           className="result-value"
                         />
                       </span>
@@ -217,7 +226,7 @@ export default async function Home() {
                   </div>
                 </Link>
               ))}
-            </div>
+            </EvidenceRail>
           </section>
 
           <section className="evidence-console project-console">
@@ -231,11 +240,16 @@ export default async function Home() {
               <strong>{String(projects.length).padStart(2, "0")}</strong>
               <Link href="/projects">View index</Link>
             </header>
-            <div
-              className="evidence-console-scroll"
-              tabIndex={0}
-              aria-label="All project records"
+            <EvidenceRail
+              label="All project records"
+              count={projects.length}
             >
+              {projects.length === 0 && (
+                <p className="evidence-empty">
+                  Project records are being prepared. They will appear here
+                  once published.
+                </p>
+              )}
               {projects.map((item, index) => (
                 <Link
                   className="evidence-dossier project-dossier"
@@ -247,7 +261,7 @@ export default async function Home() {
                       BUILD /{" "}
                       <ScrambleText
                         text={String(index + 1).padStart(2, "0")}
-                        delay={index * 90}
+                        delay={stagger(index)}
                       />
                     </span>
                     <em>
@@ -255,14 +269,14 @@ export default async function Home() {
                         text={String(
                           item.project_date ?? item.updated_at ?? "",
                         ).slice(0, 4)}
-                        delay={230 + index * 90}
+                        delay={230 + stagger(index)}
                       />
                     </em>
                   </div>
                   <h4>
                     <ScrambleText
                       text={String(item.title_en)}
-                      delay={70 + index * 90}
+                      delay={70 + stagger(index)}
                     />
                   </h4>
                   <p className="dossier-meta">
@@ -273,7 +287,7 @@ export default async function Home() {
                           ? item.tech_stack.map(String).join(" · ")
                           : String(item.summary_en ?? "Selected project")
                       }
-                      delay={150 + index * 90}
+                      delay={150 + stagger(index)}
                     />
                   </p>
                   <div className="project-state">
@@ -286,7 +300,7 @@ export default async function Home() {
                   </div>
                 </Link>
               ))}
-            </div>
+            </EvidenceRail>
           </section>
         </div>
       </section>

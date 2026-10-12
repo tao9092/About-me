@@ -20,7 +20,7 @@ import {
   streak,
   terminal,
 } from "@/components/route-fx-kit";
-import { render, shader } from "@/components/route-fx-gl";
+import { prepareShader, render, shader } from "@/components/route-fx-gl";
 
 const FRAGMENT = `
 precision highp float;
@@ -181,9 +181,13 @@ const unit = (v: Vec): Vec => {
 const cross = (a: Vec, b: Vec): Vec => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const along = (a: Vec, s: number, b: Vec, t: number): Vec => [a[0] * s + b[0] * t, a[1] * s + b[1] * t, a[2] * s + b[2] * t];
 
+const UNIFORMS = ["resolution", "time", "eye", "right", "up", "forward", "tanHalf", "sun", "spin", "glow"];
+/** Compiles the Saturn shader in the background, before the first shutter needs it. */
+export const prepareCassini = () => prepareShader("cassini", FRAGMENT, UNIFORMS);
+
 /** The ray-traced Saturn, or the given flat version where WebGL is missing. */
 export function cassini(flat: () => Fx): Fx {
-  const gpu = shader("cassini", FRAGMENT, ["resolution", "time", "eye", "right", "up", "forward", "tanHalf", "sun", "spin", "glow"]);
+  const gpu = shader("cassini", FRAGMENT, UNIFORMS);
   if (!gpu) return flat();
   const look: Look = { tint: "236,214,186", light: [0.4, 0.35], bloom: 0.6, haze: 0.03, dust: motes(50), vignette: 0.55 };
   let waited = 0;

@@ -411,8 +411,22 @@ export function SignalCosmos() {
         if (meteor.life >= meteor.maxLife) meteors.splice(index, 1);
       }
 
-      frame = requestAnimationFrame(draw);
+      frame = onScreen ? requestAnimationFrame(draw) : 0;
     };
+
+    // The sky is only drawn while the section is on screen.
+    let onScreen = true;
+    const visibility = new IntersectionObserver(
+      ([entry]) => {
+        onScreen = entry?.isIntersecting ?? true;
+        if (onScreen && !frame) {
+          previousTime = performance.now();
+          frame = requestAnimationFrame(draw);
+        }
+      },
+      { rootMargin: "100px" },
+    );
+    visibility.observe(section);
 
     const observer = new ResizeObserver(resize);
     observer.observe(section);
@@ -427,6 +441,8 @@ export function SignalCosmos() {
     frame = requestAnimationFrame(draw);
 
     return () => {
+      onScreen = false;
+      visibility.disconnect();
       observer.disconnect();
       section.removeEventListener("pointermove", onPointerMove);
       section.removeEventListener("pointerdown", onPointerDown);
