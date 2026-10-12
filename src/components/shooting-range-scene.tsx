@@ -1,7 +1,8 @@
 "use client";
 
 import * as THREE from "three";
-import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { Sky } from "three/examples/jsm/objects/Sky.js";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { useEffect, useRef } from "react";
 
 export type RangeTarget = {
@@ -153,11 +154,141 @@ function makeRadialTexture(stops: [number, string][]) {
   return texture;
 }
 
+// Deterministic random so the scenery is identical on every visit.
+function seededRandom(seed: number) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function makeCanvasTexture(size: number, paint: (ctx: CanvasRenderingContext2D, random: () => number) => void) {
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (ctx) paint(ctx, seededRandom(size));
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  return texture;
+}
+
+function makeGrassTexture() {
+  return makeCanvasTexture(512, (ctx, random) => {
+    ctx.fillStyle = "#5f8f3c";
+    ctx.fillRect(0, 0, 512, 512);
+    for (let index = 0; index < 70; index += 1) {
+      const x = random() * 512;
+      const y = random() * 512;
+      const gradient = ctx.createRadialGradient(x, y, 0, x, y, 30 + random() * 50);
+      gradient.addColorStop(0, random() > 0.5 ? "rgba(40,70,25,0.18)" : "rgba(150,180,80,0.14)");
+      gradient.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 512, 512);
+    }
+    const blades = ["#4e7f2f", "#6a9c43", "#78ab4c", "#58873a", "#8bbb5a", "#466f2b"];
+    for (let index = 0; index < 16000; index += 1) {
+      const x = random() * 512;
+      const y = random() * 512;
+      ctx.strokeStyle = blades[Math.floor(random() * blades.length)];
+      ctx.lineWidth = 1 + random();
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + (random() - 0.5) * 4, y - 3 - random() * 6);
+      ctx.stroke();
+    }
+  });
+}
+
+function makeDirtTexture() {
+  return makeCanvasTexture(256, (ctx, random) => {
+    ctx.fillStyle = "#a88661";
+    ctx.fillRect(0, 0, 256, 256);
+    const specks = ["#8f6f4c", "#b8966d", "#7d5f40", "#c4a67e", "#9a7a55"];
+    for (let index = 0; index < 3500; index += 1) {
+      ctx.fillStyle = specks[Math.floor(random() * specks.length)];
+      const size = 1 + random() * 2.5;
+      ctx.fillRect(random() * 256, random() * 256, size, size);
+    }
+    for (let index = 0; index < 40; index += 1) {
+      ctx.fillStyle = random() > 0.5 ? "#c9b18c" : "#6f5236";
+      ctx.beginPath();
+      ctx.arc(random() * 256, random() * 256, 1.5 + random() * 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Soft side edges so each lane blends into the grass.
+    ctx.globalCompositeOperation = "destination-in";
+    const edge = ctx.createLinearGradient(0, 0, 256, 0);
+    edge.addColorStop(0, "rgba(0,0,0,0)");
+    edge.addColorStop(0.2, "rgba(0,0,0,1)");
+    edge.addColorStop(0.8, "rgba(0,0,0,1)");
+    edge.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = edge;
+    ctx.fillRect(0, 0, 256, 256);
+  });
+}
+
+// A closed ring of low-poly hills around the whole range.
+function buildHillRing(radius: number, minHeight: number, maxHeight: number, seed: number, color: number) {
+  const segments = 180;
+  const positions: number[] = [];
+  const indices: number[] = [];
+  for (let index = 0; index <= segments; index += 1) {
+    const angle = (index / segments) * Math.PI * 2;
+    const wave =
+      0.5 * Math.sin(angle * 3 + seed) +
+      0.3 * Math.sin(angle * 7 + seed * 2.1) +
+      0.2 * Math.sin(angle * 17 + seed * 3.7);
+    const height = minHeight + (maxHeight - minHeight) * (wave * 0.5 + 0.5);
+    const sin = Math.sin(angle);
+    const cos = Math.cos(angle);
+    positions.push(sin * radius * 1.06, FLOOR_Y - 1, cos * radius * 1.06);
+    positions.push(sin * radius, FLOOR_Y + height, cos * radius);
+    if (index < segments) {
+      const base = index * 2;
+      indices.push(base, base + 2, base + 1, base + 1, base + 2, base + 3);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return new THREE.Mesh(
+    geometry,
+    new THREE.MeshStandardMaterial({ color, roughness: 1, flatShading: true, side: THREE.DoubleSide }),
+  );
+}
+
+// Three crossed blades; normals point up so tufts light like the ground.
+function buildTuftGeometry() {
+  const positions: number[] = [];
+  for (let blade = 0; blade < 3; blade += 1) {
+    const angle = (blade / 3) * Math.PI;
+    const dx = Math.cos(angle) * 0.045;
+    const dz = Math.sin(angle) * 0.045;
+    const lean = (blade - 1) * 0.05;
+    positions.push(-dx, 0, -dz, dx, 0, dz, lean, 0.24, lean * 0.5);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute(
+    "normal",
+    new THREE.Float32BufferAttribute(Array.from({ length: positions.length / 3 }, () => [0, 1, 0]).flat(), 3),
+  );
+  return geometry;
+}
+
 function buildPistol() {
   const group = new THREE.Group();
   const steel = new THREE.MeshStandardMaterial({
     color: 0x26211c,
-    metalness: 0.75,
+    metalness: 0.45,
     roughness: 0.32,
   });
   const brass = new THREE.MeshStandardMaterial({
@@ -285,83 +416,290 @@ export function ShootingRangeScene({
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.35;
+    renderer.toneMappingExposure = 1;
     renderer.autoClear = false;
 
-    const pmrem = new THREE.PMREMGenerator(renderer);
-    const room = new RoomEnvironment();
-    const envTexture = pmrem.fromScene(room, 0.04).texture;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
 
-    // World: the range the player looks into.
+    // World: an outdoor grass range under an analytic sky.
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xc4b496);
-    scene.fog = new THREE.Fog(0xc4b496, 22, 75);
-    scene.environment = envTexture;
-    scene.environmentIntensity = 0.35;
+    scene.fog = new THREE.Fog(0xd3e3ec, 45, 230);
 
-    const camera = new THREE.PerspectiveCamera(58, 1, 0.05, 80);
+    const camera = new THREE.PerspectiveCamera(58, 1, 0.05, 400);
     camera.rotation.order = "YXZ";
 
-    scene.add(new THREE.HemisphereLight(0xfff1d6, 0x6b5238, 2.2));
-    const sun = new THREE.DirectionalLight(0xfff0d0, 2.2);
-    sun.position.set(5, 10, 4);
-    scene.add(sun);
+    // Sun high behind the shooter so the signs are front-lit.
+    const sunDirection = new THREE.Vector3().setFromSphericalCoords(
+      1,
+      THREE.MathUtils.degToRad(40),
+      THREE.MathUtils.degToRad(-30),
+    );
+    const configureSky = (target: Sky, withSun: boolean) => {
+      const uniforms = target.material.uniforms;
+      uniforms.turbidity.value = 3.2;
+      uniforms.rayleigh.value = 1.1;
+      uniforms.mieCoefficient.value = 0.004;
+      uniforms.mieDirectionalG.value = 0.8;
+      uniforms.sunPosition.value.copy(sunDirection);
+      uniforms.cloudCoverage.value = withSun ? 0.42 : 0;
+      uniforms.cloudDensity.value = 0.65;
+      uniforms.showSunDisc.value = withSun ? 1 : 0;
+    };
+    const sky = new Sky();
+    sky.scale.setScalar(300);
+    configureSky(sky, true);
+    sky.material.fragmentShader = sky.material.fragmentShader.replace(
+      "gl_FragColor = vec4( texColor, 1.0 );",
+      "gl_FragColor = vec4( texColor * 0.55, 1.0 );",
+    );
+    scene.add(sky);
+
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const envScene = new THREE.Scene();
+    const envSky = new Sky();
+    configureSky(envSky, false);
+    envScene.add(envSky);
+    const envTexture = pmrem.fromScene(envScene).texture;
+    envSky.geometry.dispose();
+    envSky.material.dispose();
+    scene.environment = envTexture;
+    scene.environmentIntensity = 0.45;
+
+    scene.add(new THREE.HemisphereLight(0xcfe6ff, 0x5b7a3a, 1.3));
+    const sun = new THREE.DirectionalLight(0xfff2dc, 3.2);
+    sun.position.copy(sunDirection).multiplyScalar(40).add(new THREE.Vector3(0, 0, -8));
+    sun.target.position.set(0, 0, -8);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.left = -26;
+    sun.shadow.camera.right = 26;
+    sun.shadow.camera.top = 26;
+    sun.shadow.camera.bottom = -26;
+    sun.shadow.camera.near = 1;
+    sun.shadow.camera.far = 100;
+    sun.shadow.bias = -0.0004;
+    sun.shadow.normalBias = 0.03;
+    scene.add(sun, sun.target);
     const fireLight = new THREE.PointLight(0xffb45c, 0, 14, 2);
     scene.add(fireLight);
 
-    // A curved panorama so turning the head never reveals an empty edge.
-    const backdropMaterial = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(1.18, 1.14, 1.08),
-      side: THREE.BackSide,
-      toneMapped: false,
+    const random = seededRandom(9092);
+    const signSpots = targetList.map((_, index) => {
+      const x = (index - (targetList.length - 1) / 2) * 3.2;
+      return { x, z: -9 + Math.abs(x) * 0.25 };
     });
-    new THREE.TextureLoader().load("/gothic-clockwork-cathedral.png", (texture) => {
-      if (disposed) {
-        texture.dispose();
-        return;
+
+    // Ground: tiled grass with large-scale colour drift to hide the tiling.
+    const grassTexture = makeGrassTexture();
+    grassTexture.repeat.set(125, 125);
+    grassTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    const groundGeometry = new THREE.PlaneGeometry(500, 500, 120, 120);
+    groundGeometry.rotateX(-Math.PI / 2);
+    const groundPositions = groundGeometry.attributes.position;
+    const groundColors = new Float32Array(groundPositions.count * 3);
+    for (let index = 0; index < groundPositions.count; index += 1) {
+      const x = groundPositions.getX(index);
+      const z = groundPositions.getZ(index);
+      const drift =
+        0.92 +
+        0.06 * Math.sin(x * 0.13 + 1.7) +
+        0.05 * Math.sin(z * 0.11 + 0.4) +
+        0.04 * Math.sin((x + z) * 0.31);
+      groundColors.set([drift, drift + 0.02, drift * 0.95], index * 3);
+    }
+    groundGeometry.setAttribute("color", new THREE.BufferAttribute(groundColors, 3));
+    const ground = new THREE.Mesh(
+      groundGeometry,
+      new THREE.MeshStandardMaterial({ map: grassTexture, vertexColors: true, roughness: 0.95 }),
+    );
+    ground.position.y = FLOOR_Y;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // A dirt lane runs from the bench to every sign.
+    const dirtTexture = makeDirtTexture();
+    dirtTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    const laneMaterial = new THREE.MeshStandardMaterial({
+      map: dirtTexture,
+      transparent: true,
+      depthWrite: false,
+      roughness: 1,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+    });
+    signSpots.forEach(({ x, z }) => {
+      const distance = Math.hypot(x, z);
+      const length = distance - 1.2;
+      const geometry = new THREE.PlaneGeometry(1.9, length);
+      geometry.rotateX(-Math.PI / 2);
+      const uv = geometry.attributes.uv;
+      for (let index = 0; index < uv.count; index += 1) uv.setY(index, uv.getY(index) * (length / 2));
+      const lane = new THREE.Mesh(geometry, laneMaterial);
+      const along = (1.2 + distance + 0.6) / 2 / distance;
+      lane.position.set(x * along, FLOOR_Y + 0.01, z * along);
+      lane.rotation.y = Math.atan2(-x, -z);
+      lane.receiveShadow = true;
+      scene.add(lane);
+    });
+
+    // Earth berm behind the targets, as on a real range.
+    const bermTexture = grassTexture.clone();
+    bermTexture.repeat.set(30, 5);
+    bermTexture.needsUpdate = true;
+    const berm = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 64, 20, 0, Math.PI * 2, 0, Math.PI / 2),
+      new THREE.MeshStandardMaterial({ map: bermTexture, color: 0xd8e6c8, roughness: 1 }),
+    );
+    berm.scale.set(24, 2.8, 4.5);
+    berm.position.set(0, FLOOR_Y, -16);
+    berm.castShadow = true;
+    berm.receiveShadow = true;
+    scene.add(berm);
+
+    scene.add(buildHillRing(120, 4, 13, 1.3, 0x5f8f45));
+    scene.add(buildHillRing(185, 14, 32, 4.2, 0x86a7b8));
+
+    // Trees: pines and round broadleaves, instanced, kept off the range itself.
+    const treeSpots: { x: number; z: number; scale: number; round: boolean }[] = [];
+    while (treeSpots.length < 110) {
+      const x = (random() - 0.5) * 130;
+      const z = 14 - random() * 90;
+      if (Math.abs(x) < 14 && z > -21) continue;
+      if (Math.hypot(x, z) < 14) continue;
+      treeSpots.push({ x, z, scale: 0.8 + random() * 0.9, round: random() > 0.6 });
+    }
+    const pineFoliageGeometry = mergeGeometries([
+      new THREE.ConeGeometry(1.1, 2.6, 7).translate(0, 2.3, 0),
+      new THREE.ConeGeometry(0.8, 2.1, 7).translate(0, 3.4, 0),
+    ]);
+    const roundFoliageGeometry = new THREE.IcosahedronGeometry(1.35, 1).translate(0, 2.7, 0);
+    const trunkGeometry = new THREE.CylinderGeometry(0.12, 0.18, 1.4, 6).translate(0, 0.7, 0);
+    const foliageMaterial = new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true });
+    const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x6b4a2f, roughness: 1 });
+    const pineSpots = treeSpots.filter((tree) => !tree.round);
+    const roundSpots = treeSpots.filter((tree) => tree.round);
+    const pines = new THREE.InstancedMesh(pineFoliageGeometry, foliageMaterial, pineSpots.length);
+    const rounds = new THREE.InstancedMesh(roundFoliageGeometry, foliageMaterial, roundSpots.length);
+    const trunks = new THREE.InstancedMesh(trunkGeometry, trunkMaterial, treeSpots.length);
+    const placement = new THREE.Object3D();
+    const tint = new THREE.Color();
+    const placeTree = (mesh: THREE.InstancedMesh, index: number, tree: (typeof treeSpots)[number], hue: number) => {
+      placement.position.set(tree.x, FLOOR_Y, tree.z);
+      placement.rotation.set(0, random() * Math.PI * 2, 0);
+      placement.scale.setScalar(tree.scale);
+      placement.updateMatrix();
+      mesh.setMatrixAt(index, placement.matrix);
+      mesh.setColorAt(index, tint.setHSL(hue + random() * 0.05, 0.45 + random() * 0.15, 0.2 + random() * 0.09, THREE.SRGBColorSpace));
+    };
+    pineSpots.forEach((tree, index) => placeTree(pines, index, tree, 0.3));
+    roundSpots.forEach((tree, index) => placeTree(rounds, index, tree, 0.24));
+    treeSpots.forEach((tree, index) => {
+      placement.position.set(tree.x, FLOOR_Y, tree.z);
+      placement.rotation.set(0, 0, 0);
+      placement.scale.setScalar(tree.scale);
+      placement.updateMatrix();
+      trunks.setMatrixAt(index, placement.matrix);
+    });
+    [pines, rounds, trunks].forEach((mesh) => {
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      scene.add(mesh);
+    });
+
+    // Grass tufts and a few wildflowers, kept off the dirt lanes.
+    const onLane = (x: number, z: number) =>
+      signSpots.some((spot) => {
+        const distance = Math.hypot(spot.x, spot.z);
+        const along = (x * spot.x + z * spot.z) / distance;
+        const across = Math.abs(x * spot.z - z * spot.x) / distance;
+        return along > 1 && along < distance + 0.8 && across < 1.05;
+      });
+    const tuftSpots: { x: number; z: number }[] = [];
+    while (tuftSpots.length < 3200) {
+      const near = tuftSpots.length < 2200;
+      const x = (random() - 0.5) * (near ? 24 : 70);
+      const z = near ? -0.5 - random() * 15 : 6 - random() * 34;
+      if (onLane(x, z) || (Math.abs(x) < 2.4 && z > -2.2)) continue;
+      tuftSpots.push({ x, z });
+    }
+    const tufts = new THREE.InstancedMesh(
+      buildTuftGeometry(),
+      new THREE.MeshLambertMaterial({ side: THREE.DoubleSide }),
+      tuftSpots.length,
+    );
+    tuftSpots.forEach(({ x, z }, index) => {
+      placement.position.set(x, FLOOR_Y, z);
+      placement.rotation.set(0, random() * Math.PI, 0);
+      placement.scale.setScalar(0.6 + random() * 0.9);
+      placement.updateMatrix();
+      tufts.setMatrixAt(index, placement.matrix);
+      tufts.setColorAt(index, tint.setHSL(0.24 + random() * 0.05, 0.55, 0.12 + random() * 0.07));
+    });
+    scene.add(tufts);
+
+    const flowerColors = [0xffffff, 0xffe066, 0xf6c1d9, 0xb9a5ff];
+    const flowers = new THREE.InstancedMesh(
+      new THREE.IcosahedronGeometry(0.045, 0),
+      new THREE.MeshLambertMaterial(),
+      180,
+    );
+    for (let index = 0; index < 180; index += 1) {
+      let x = 0;
+      let z = 0;
+      do {
+        x = (random() - 0.5) * 26;
+        z = -1 - random() * 15;
+      } while (onLane(x, z));
+      placement.position.set(x, FLOOR_Y + 0.14 + random() * 0.1, z);
+      placement.rotation.set(0, 0, 0);
+      placement.scale.setScalar(0.8 + random() * 0.6);
+      placement.updateMatrix();
+      flowers.setMatrixAt(index, placement.matrix);
+      flowers.setColorAt(index, tint.set(flowerColors[Math.floor(random() * flowerColors.length)]));
+    }
+    scene.add(flowers);
+
+    // Split-rail fences along both sides of the range.
+    const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x8a6440, roughness: 0.9 });
+    const fencePostGeometry = new THREE.BoxGeometry(0.12, 1.1, 0.12);
+    const fenceLength = 17;
+    const postsPerSide = 11;
+    const fencePosts = new THREE.InstancedMesh(fencePostGeometry, woodMaterial, postsPerSide * 2);
+    [-1, 1].forEach((side, sideIndex) => {
+      for (let index = 0; index < postsPerSide; index += 1) {
+        placement.position.set(side * 10.5, FLOOR_Y + 0.55, 1 - (index * fenceLength) / (postsPerSide - 1));
+        placement.rotation.set(0, 0, 0);
+        placement.scale.setScalar(1);
+        placement.updateMatrix();
+        fencePosts.setMatrixAt(sideIndex * postsPerSide + index, placement.matrix);
       }
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.wrapS = THREE.MirroredRepeatWrapping;
-      texture.repeat.x = 2;
-      texture.offset.x = 0.5;
-      backdropMaterial.map = texture;
-      backdropMaterial.needsUpdate = true;
+      [0.35, 0.8].forEach((height) => {
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.09, fenceLength), woodMaterial);
+        rail.position.set(side * 10.5, FLOOR_Y + height, 1 - fenceLength / 2);
+        rail.castShadow = true;
+        scene.add(rail);
+      });
     });
-    const backdropArc = Math.PI * 1.15;
-    const backdrop = new THREE.Mesh(
-      new THREE.CylinderGeometry(26, 26, 28, 64, 1, true, Math.PI - backdropArc / 2, backdropArc),
-      backdropMaterial,
-    );
-    backdrop.position.y = 5;
-    scene.add(backdrop);
+    fencePosts.castShadow = true;
+    scene.add(fencePosts);
 
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(80, 80),
-      new THREE.MeshStandardMaterial({ color: 0x8a7458, roughness: 0.8, metalness: 0.05 }),
-    );
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.y = FLOOR_Y;
-    scene.add(floor);
-
-    const grid = new THREE.GridHelper(80, 80, 0xd2ad72, 0xa58866);
-    const gridMaterials = Array.isArray(grid.material) ? grid.material : [grid.material];
-    gridMaterials.forEach((material) => {
-      material.transparent = true;
-      material.opacity = 0.35;
-    });
-    grid.position.y = FLOOR_Y + 0.01;
-    scene.add(grid);
-
-    const ledgeMaterial = new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.6 });
-    const ledge = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.12, 0.7), ledgeMaterial);
+    // Wooden shooting bench in front of the player.
+    const benchMaterial = new THREE.MeshStandardMaterial({ color: 0x8b5e34, roughness: 0.75 });
+    const ledge = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.12, 0.7), benchMaterial);
     ledge.position.set(0, -0.78, -1.55);
+    ledge.castShadow = true;
+    ledge.receiveShadow = true;
     scene.add(ledge);
-    const ledgeTrim = new THREE.Mesh(
-      new THREE.BoxGeometry(4.2, 0.03, 0.03),
-      new THREE.MeshStandardMaterial({ color: 0xc08a3e, metalness: 0.9, roughness: 0.3 }),
-    );
-    ledgeTrim.position.set(0, -0.71, -1.2);
-    scene.add(ledgeTrim);
+    const benchLegGeometry = new THREE.BoxGeometry(0.12, -0.84 - FLOOR_Y, 0.12);
+    [-1.9, 1.9].forEach((x) => {
+      [-1.3, -1.8].forEach((z) => {
+        const leg = new THREE.Mesh(benchLegGeometry, woodMaterial);
+        leg.position.set(x, (FLOOR_Y - 0.84) / 2, z);
+        leg.castShadow = true;
+        scene.add(leg);
+      });
+    });
 
     // Targets: one hinged sign per capability.
     const fontFamily = getComputedStyle(canvas).fontFamily || "sans-serif";
@@ -383,8 +721,7 @@ export function ShootingRangeScene({
     });
 
     const signs: Sign[] = targetList.map((target, index) => {
-      const x = (index - (targetList.length - 1) / 2) * 3.2;
-      const z = -9 + Math.abs(x) * 0.25;
+      const { x, z } = signSpots[index];
       const stand = new THREE.Group();
       stand.position.set(x, 0, z);
       stand.rotation.y = Math.atan2(-x, -z);
@@ -393,6 +730,7 @@ export function ShootingRangeScene({
       [-0.8, 0.8].forEach((postX) => {
         const post = new THREE.Mesh(postGeometry, postMaterial);
         post.position.set(postX, (HINGE_Y + FLOOR_Y) / 2, -0.02);
+        post.castShadow = true;
         stand.add(post);
       });
 
@@ -426,12 +764,8 @@ export function ShootingRangeScene({
       const board = new THREE.Mesh(boardGeometry, [trim, trim, trim, trim, face, back]);
       board.position.y = SIGN_HEIGHT / 2;
       board.userData.index = index;
+      board.castShadow = true;
       hinge.add(board);
-
-      const spot = new THREE.SpotLight(0xffd59a, 26, 12, 0.55, 0.6, 2);
-      spot.position.set(0, 2.6, 1.6);
-      spot.target.position.set(0, HINGE_Y + SIGN_HEIGHT / 2, 0);
-      stand.add(spot, spot.target);
 
       return {
         hinge,
@@ -447,7 +781,7 @@ export function ShootingRangeScene({
       };
     });
     const boards = signs.map((sign) => sign.board);
-    const environment = [floor, backdrop, ledge];
+    const environment = [ground, berm, ledge, pines, rounds, trunks];
 
     document.fonts?.ready.then(() => {
       if (disposed) return;
@@ -467,7 +801,7 @@ export function ShootingRangeScene({
     // Weapon: drawn in its own pass so it never clips into the world.
     const viewScene = new THREE.Scene();
     viewScene.environment = envTexture;
-    viewScene.environmentIntensity = 0.55;
+    viewScene.environmentIntensity = 0.22;
     const viewCamera = new THREE.PerspectiveCamera(58, 1, 0.01, 10);
     viewScene.add(new THREE.HemisphereLight(0xfff0d6, 0x5a4028, 2));
     const keyLight = new THREE.DirectionalLight(0xffd7a0, 1.6);
@@ -669,7 +1003,7 @@ export function ShootingRangeScene({
     }
 
     function spawnImpact(point: THREE.Vector3, normal: THREE.Vector3, metal: boolean) {
-      const count = metal ? 46 : 30;
+      const count = metal ? 46 : 12;
       const heads = new Float32Array(count * 3);
       const velocities = new Float32Array(count * 3);
       const lifetimes = new Float32Array(count);
@@ -725,10 +1059,12 @@ export function ShootingRangeScene({
 
       const smokeMaterial = new THREE.SpriteMaterial({
         map: smokeTexture,
+        color: metal ? 0xffffff : 0xb59a72,
         transparent: true,
         depthWrite: false,
         opacity: 0,
       });
+      const smokeGrowth = metal ? 0.9 : 1.7;
       const smoke = new THREE.Sprite(smokeMaterial);
       smoke.position.copy(point).addScaledVector(normal, 0.08);
 
@@ -788,7 +1124,7 @@ export function ShootingRangeScene({
 
           burst.visible = age < 0.1;
           burst.scale.setScalar(0.1 + 0.55 * Math.max(0, 1 - age / 0.1));
-          smoke.scale.setScalar(0.15 + age * 0.9);
+          smoke.scale.setScalar(0.15 + age * smokeGrowth);
           smoke.position.y += delta * 0.25;
           smokeMaterial.opacity = Math.min(age * 12, 1) * 0.5 * (1 - age / life);
         },
@@ -1046,10 +1382,12 @@ export function ShootingRangeScene({
     resizeObserver.observe(canvas);
     resize();
 
-    const clock = new THREE.Clock();
+    const timer = new THREE.Timer();
     const tick = () => {
-      const delta = Math.min(clock.getDelta(), 0.05);
-      const elapsed = clock.elapsedTime;
+      timer.update();
+      const delta = Math.min(timer.getDelta(), 0.05);
+      const elapsed = timer.getElapsed();
+      if (!reducedMotion) sky.material.uniforms.time.value = elapsed;
 
       if (modeRef.current === "idle") {
         targetYaw = reducedMotion ? 0 : Math.sin(elapsed * 0.3) * 0.28;
@@ -1152,7 +1490,7 @@ export function ShootingRangeScene({
     const start = () => {
       if (running) return;
       running = true;
-      clock.getDelta();
+      timer.update();
       frame = window.requestAnimationFrame(loop);
     };
     const stop = () => {
@@ -1192,7 +1530,6 @@ export function ShootingRangeScene({
       holeMaterial.dispose();
       disposeTree(scene);
       disposeTree(viewScene);
-      room.dispose();
       envTexture.dispose();
       pmrem.dispose();
       renderer.dispose();
