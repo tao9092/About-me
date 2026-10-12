@@ -7,10 +7,13 @@ const glyphs = "01<>/{}[]#*+?=:_";
 export function ScrambleText({
   text,
   delay = 0,
+  speed = 75,
   className,
 }: {
   text: string;
   delay?: number;
+  /** Milliseconds per revealed character. */
+  speed?: number;
   className?: string;
 }) {
   const element = useRef<HTMLSpanElement | null>(null);
@@ -36,7 +39,7 @@ export function ScrambleText({
       const elapsed = time - startedAt;
       const revealed = Math.min(
         characters.length,
-        Math.floor(elapsed / 75),
+        Math.floor(elapsed / speed),
       );
 
       if (time - lastShuffle > 48 || revealed === characters.length) {
@@ -78,7 +81,7 @@ export function ScrambleText({
       cancelAnimationFrame(frame);
       clearTimeout(timeout);
     };
-  }, [delay, text]);
+  }, [delay, speed, text]);
 
   return (
     <span ref={element} className={className} aria-label={text}>
