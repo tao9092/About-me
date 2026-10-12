@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { Sky } from "three/examples/jsm/objects/Sky.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type RangeTarget = {
   number: string;
@@ -402,9 +402,21 @@ export function ShootingRangeScene({
     lockRef.current?.();
   }, [mode, activeIndex]);
 
+  // The range sits far down the page, so the renderer, sky and environment map are
+  // only built once it comes near the viewport: otherwise their GPU work holds up
+  // the page loading, and any route shutter playing over it.
+  const [armed, setArmed] = useState(false);
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || armed) return;
+    const near = new IntersectionObserver(([entry]) => entry.isIntersecting && setArmed(true), { rootMargin: "800px" });
+    near.observe(canvas);
+    return () => near.disconnect();
+  }, [armed]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !armed) return;
     const targetList = targetsRef.current;
     let disposed = false;
 
@@ -1534,7 +1546,7 @@ export function ShootingRangeScene({
       pmrem.dispose();
       renderer.dispose();
     };
-  }, []);
+  }, [armed]);
 
   return (
     <canvas
