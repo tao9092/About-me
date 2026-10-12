@@ -7,6 +7,7 @@ import { useFormStatus } from "react-dom";
 import { toast } from "sonner";
 import { saveContentAction } from "@/app/actions/content";
 import type { EntityTable } from "@/lib/content";
+import { lacksColumn } from "@/lib/entity-columns";
 import { slugify } from "@/lib/utils";
 
 type Field = [name: string, label: string, type: string];
@@ -80,7 +81,8 @@ export function ContentForm({ entity, record }: { entity: EntityTable; record?: 
       <div><h2>Essentials</h2><p>Enough to save your first Draft.</p></div>
       <div className="form-fields two-col">
         <label>Title <em aria-label="required">*</em><input name="title_en" value={title} onChange={(event) => { setTitle(event.target.value); if (!record) setSlug(slugify(event.target.value)); }} required minLength={2} /></label>
-        <label>Slug <em aria-label="required">*</em><input name="slug" value={slug} onChange={(event) => setSlug(event.target.value)} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" required /></label>
+        {/* Links have no slug column: a placeholder passes the shared validation and is dropped on save. */}
+        {lacksColumn(entity, "slug") ? <input type="hidden" name="slug" value="link" /> : <label>Slug <em aria-label="required">*</em><input name="slug" value={slug} onChange={(event) => setSlug(event.target.value)} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" required /></label>}
         <label className="full-field">Short summary<textarea name="summary_en" defaultValue={String(record?.summary_en ?? "")} rows={4} /></label>
         <label>Visibility<select name="visibility" defaultValue={String(record?.visibility ?? "private")}><option value="private">Private — owner only</option><option value="protected">Protected — shared password</option><option value="public">Public — anyone</option></select></label>
         {requiredFields.map((field) => <FieldInput key={field[0]} field={field} record={record} isRequired />)}
@@ -99,9 +101,9 @@ export function ContentForm({ entity, record }: { entity: EntityTable; record?: 
       <summary><span><strong>Optional details</strong><small>Chinese content, full description, links, sorting and featured settings</small></span><b>Expand</b></summary>
       <div className="optional-panel-content">
         <section className="form-panel"><div><h2>More details</h2><p>Complete these whenever you are ready.</p></div><div className="form-fields two-col">{optionalFields.map((field) => <FieldInput key={field[0]} field={field} record={record} isRequired={false} />)}</div></section>
-        <section className="form-panel"><div><h2>Full description</h2><p>Optional long-form content.</p></div><div className="form-fields"><textarea aria-label="Detailed content" name="content_en" defaultValue={String(record?.content_en ?? "")} rows={10} /></div></section>
-        <section className="form-panel"><div><h2>简体中文</h2><p>留空时公开页面会使用英文内容。</p></div><div className="form-fields"><label>标题<input name="title_zh" defaultValue={String(record?.title_zh ?? "")} /></label><label>摘要<textarea name="summary_zh" defaultValue={String(record?.summary_zh ?? "")} rows={4} /></label><label>详细内容<textarea name="content_zh" defaultValue={String(record?.content_zh ?? "")} rows={8} /></label></div></section>
-        <section className="form-panel"><div><h2>Display options</h2><p>Optional ordering and homepage placement.</p></div><div className="form-fields two-col"><label>Sort order<input name="sort_order" type="number" min="0" defaultValue={String(record?.sort_order ?? 0)} /></label><label className="check-label"><input name="is_featured" type="checkbox" defaultChecked={Boolean(record?.is_featured)} /> Feature this record</label></div></section>
+        {!lacksColumn(entity, "content_en") && <section className="form-panel"><div><h2>Full description</h2><p>Optional long-form content.</p></div><div className="form-fields"><textarea aria-label="Detailed content" name="content_en" defaultValue={String(record?.content_en ?? "")} rows={10} /></div></section>}
+        <section className="form-panel"><div><h2>简体中文</h2><p>留空时公开页面会使用英文内容。</p></div><div className="form-fields"><label>标题<input name="title_zh" defaultValue={String(record?.title_zh ?? "")} /></label><label>摘要<textarea name="summary_zh" defaultValue={String(record?.summary_zh ?? "")} rows={4} /></label>{!lacksColumn(entity, "content_zh") && <label>详细内容<textarea name="content_zh" defaultValue={String(record?.content_zh ?? "")} rows={8} /></label>}</div></section>
+        <section className="form-panel"><div><h2>Display options</h2><p>Optional ordering and homepage placement.</p></div><div className="form-fields two-col"><label>Sort order<input name="sort_order" type="number" min="0" defaultValue={String(record?.sort_order ?? 0)} /></label>{!lacksColumn(entity, "is_featured") && <label className="check-label"><input name="is_featured" type="checkbox" defaultChecked={Boolean(record?.is_featured)} /> Feature this record</label>}</div></section>
       </div>
     </details>
     {state?.error && <p className="form-error" role="alert">{state.error}</p>}

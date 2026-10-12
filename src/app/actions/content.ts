@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { entityTables, type EntityTable } from "@/lib/content";
+import { withoutMissingColumns } from "@/lib/entity-columns";
 import { baseContentSchema } from "@/lib/validation";
 import { sanitizeRichText } from "@/lib/sanitize";
 import { uploadValidatedFile } from "@/lib/files";
@@ -109,14 +110,14 @@ export async function saveContentAction(
     }
   }
 
-  const payload: Record<string, unknown> = {
+  const payload: Record<string, unknown> = withoutMissingColumns(entity, {
     ...parsed.data,
     ...details.data,
     content_en: sanitizeRichText(parsed.data.content_en),
     content_zh: sanitizeRichText(parsed.data.content_zh),
     status: "draft" as const,
     updated_at: new Date().toISOString(),
-  };
+  });
   if (imageFileId) payload.image_file_id = imageFileId;
   const id = String(formData.get("record_id") ?? "");
   const query = id
