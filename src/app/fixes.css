@@ -1407,30 +1407,46 @@ html:not(.dark) .capability-field-empty span {
 .range-shortcuts button:focus-visible,
 .range-sound:focus-visible,
 .range-close:focus-visible { outline:2px solid var(--range-accent);outline-offset:2px; }
+/* A hit opens the record as a centred dialog over a dimmed range. */
+.range-detail-backdrop {
+  position:absolute;
+  inset:0;
+  z-index:7;
+  background:rgba(12,7,3,.55);
+  backdrop-filter:blur(4px);
+  opacity:0;
+  visibility:hidden;
+  transition:opacity .3s,visibility 0s .3s;
+}
+.is-open .range-detail-backdrop {
+  opacity:1;
+  visibility:visible;
+  transition:opacity .3s,visibility 0s;
+}
 .range-detail {
   position:absolute;
-  z-index:4;
-  top:18px;
-  right:18px;
-  bottom:18px;
-  width:min(540px,calc(100% - 36px));
+  z-index:8;
+  top:50%;
+  left:50%;
+  width:min(560px,calc(100% - 36px));
+  max-height:calc(100% - 48px);
   padding:30px 34px;
   overflow:auto;
   border:1px solid var(--range-line);
   border-radius:16px;
-  background:rgba(25,14,8,.92);
+  background:rgba(25,14,8,.94);
   backdrop-filter:blur(10px);
-  box-shadow:inset 0 0 55px rgba(0,0,0,.4),-20px 0 60px rgba(0,0,0,.35);
+  box-shadow:inset 0 0 55px rgba(0,0,0,.4),0 30px 80px rgba(0,0,0,.45);
   opacity:0;
   visibility:hidden;
-  transform:translateX(40px);
-  transition:opacity .3s,transform .55s cubic-bezier(.16,1,.3,1),visibility 0s .55s;
+  transform:translate(-50%,-46%) scale(.94);
+  transition:opacity .25s,transform .45s cubic-bezier(.16,1,.3,1),visibility 0s .45s;
 }
 .is-open .range-detail {
   opacity:1;
   visibility:visible;
-  transform:none;
-  transition:opacity .35s .1s,transform .6s .05s cubic-bezier(.16,1,.3,1),visibility 0s;
+  transform:translate(-50%,-50%);
+  transition:opacity .3s .05s,transform .55s .05s cubic-bezier(.16,1,.3,1),visibility 0s;
 }
 .range-detail-head {
   display:flex;
@@ -1535,14 +1551,9 @@ html:not(.dark) .capability-field-empty span {
   .range-hint { left:18px;bottom:76px; }
   .range-controls { left:16px;right:16px;bottom:16px;justify-content:space-between; }
   .range-detail {
-    top:auto;
-    left:12px;
-    right:12px;
-    bottom:12px;
-    width:auto;
-    max-height:78%;
+    width:calc(100% - 24px);
+    max-height:calc(100% - 24px);
     padding:24px 22px;
-    transform:translateY(40px);
   }
   .range-detail h3 { font-size:clamp(2rem,11vw,3rem); }
   .range-detail-fields article { grid-template-columns:20px 1fr; }
@@ -1552,12 +1563,13 @@ html:not(.dark) .capability-field-empty span {
   .range-crosshair,
   .range-aim-label,
   .range-detail,
-  .is-open .range-detail { transition:none; }
+  .is-open .range-detail,
+  .range-detail-backdrop,
+  .is-open .range-detail-backdrop { transition:none; }
 }
 
 /* Capabilities / 03: start screen, pause menu and pause button. */
 .range-controls { z-index:6; }
-.range-detail { z-index:7; }
 .range-start,
 .range-pause {
   position:absolute;
@@ -1573,7 +1585,7 @@ html:not(.dark) .capability-field-empty span {
   text-align:center;
 }
 .range-start { cursor:pointer; }
-.range-pause { z-index:8;background:rgba(14,8,4,.55);backdrop-filter:blur(6px); }
+.range-pause { z-index:9;background:rgba(14,8,4,.55);backdrop-filter:blur(6px); }
 .range-start-card,
 .range-pause-card {
   width:min(420px,100%);

@@ -110,6 +110,7 @@ export function CapabilityAtlas({ skills }: { skills: Skill[] }) {
   const [aimingDownSights, setAimingDownSights] = useState(false);
   const [locked, setLocked] = useState(false);
   const resumeRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
   const openRef = useRef(open);
   const lockLostAtRef = useRef(0);
 
@@ -172,6 +173,10 @@ export function CapabilityAtlas({ skills }: { skills: Skill[] }) {
   useEffect(() => {
     if (mode === "paused") resumeRef.current?.focus();
   }, [mode]);
+
+  useEffect(() => {
+    if (open) closeRef.current?.focus({ preventScroll: true });
+  }, [open, detailIndex]);
 
   const rootClass = [
     "capability-range",
@@ -304,8 +309,11 @@ export function CapabilityAtlas({ skills }: { skills: Skill[] }) {
         </div>
       </div>
 
+      <div className="range-detail-backdrop" aria-hidden />
       <section
         className="range-detail"
+        role="dialog"
+        aria-modal={open}
         aria-label={`${selected.title} details`}
         inert={!open}
       >
@@ -317,6 +325,7 @@ export function CapabilityAtlas({ skills }: { skills: Skill[] }) {
           <button
             type="button"
             className="range-close"
+            ref={closeRef}
             onClick={() => setOpen(false)}
             aria-label="Close capability details"
           >
