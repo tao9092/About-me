@@ -68,27 +68,6 @@ export function AurosHeroMotion({ children }: { children: ReactNode }) {
   );
 }
 
-export function LineRise({
-  children,
-  delay = 0,
-}: {
-  children: ReactNode;
-  delay?: number;
-}) {
-  const reduce = useReducedMotion();
-  return (
-    <span className="auros-line-mask">
-      <motion.span
-        initial={false}
-        animate={reduce ? undefined : { y: 0, opacity: 1 }}
-        transition={{ duration: 0.8, delay, ease: [0.16, 1, 0.3, 1] }}
-      >
-        {children}
-      </motion.span>
-    </span>
-  );
-}
-
 export function DataOrb({
   size = "large",
   index = 0,

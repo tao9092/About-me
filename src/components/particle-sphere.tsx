@@ -24,14 +24,23 @@ const palette = [
   [255, 220, 112],
 ] as const;
 
+// Opening for `assemble`: particles start scattered and are pulled into the
+// sphere as the hero curtain opens. The curtain is a CSS animation that starts
+// with the first paint, so the gathering is timed from that animation's start
+// rather than from hydration.
+const GATHER_DELAY = 700;
+const GATHER_DURATION = 1400;
+
 export function ParticleSphere({
   className,
   density = "high",
   label = "Interactive multicolor particle sphere",
+  assemble = false,
 }: {
   className?: string;
   density?: "high" | "medium" | "low";
   label?: string;
+  assemble?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
@@ -55,6 +64,14 @@ export function ParticleSphere({
     let lightTheme = !document.documentElement.classList.contains("dark");
     const pointer = { x: -9999, y: -9999, active: false, power: 0 };
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let gathering = assemble && !reduce;
+    const introStart = container
+      .closest(".hero-intro")
+      ?.querySelector(".hero-intro-curtain")
+      ?.getAnimations({ subtree: true })
+      .reduce((earliest, animation) => Math.min(earliest, Number(animation.startTime ?? Infinity)), Infinity);
+    const gatherStart =
+      (introStart !== undefined && Number.isFinite(introStart) ? introStart : performance.now()) + GATHER_DELAY;
     const counts = { high: 1800, medium: 720, low: 360 };
     function rebuild() {
       const r = container.getBoundingClientRect();
@@ -93,7 +110,32 @@ export function ParticleSphere({
           color: i % palette.length,
         };
       });
+      if (gathering) {
+        const reach = Math.hypot(w, h) * 0.75;
+        for (const p of points) {
+          const angle = Math.random() * Math.PI * 2,
+            distance = reach * (0.55 + Math.random() * 0.6);
+          p.x = w / 2 + Math.cos(angle) * distance;
+          p.y = h / 2 + Math.sin(angle) * distance;
+          p.energy = 0.6 + Math.random() * 0.4;
+        }
+        context.clearRect(0, 0, w, h);
+        return;
+      }
       paint(true);
+    }
+    // Spring strength: eases up from a gentle pull while the sphere gathers,
+    // then the formed sphere flashes its palette (with the CSS shockwave).
+    function pull(now: number) {
+      if (!gathering) return 0.017;
+      if (now < gatherStart) return 0;
+      const t = Math.min(1, (now - gatherStart) / GATHER_DURATION);
+      if (t >= 1) {
+        gathering = false;
+        for (const p of points) p.energy = Math.max(p.energy, 0.55 + Math.random() * 0.4);
+      }
+      const eased = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+      return 0.0025 + 0.0145 * eased;
     }
     function paint(still = false) {
       context.clearRect(0, 0, w, h);
@@ -102,7 +144,8 @@ export function ParticleSphere({
         unit = Math.min(w, h),
         rot = still ? 0 : time * 0.00015,
         c = Math.cos(rot),
-        s = Math.sin(rot);
+        s = Math.sin(rot),
+        k = still ? 0 : pull(performance.now());
       for (const p of points) {
         const tx = cx + p.hx * c - p.z * unit * 0.16 * s,
           ty = cy + p.hy,
@@ -119,8 +162,8 @@ export function ParticleSphere({
             p.vy += (dy / dist) * f - (dx / dist) * swirl;
             p.energy = Math.min(1, p.energy + f * 0.045);
           }
-          p.vx += (tx - p.x) * 0.017;
-          p.vy += (ty - p.y) * 0.017;
+          p.vx += (tx - p.x) * k;
+          p.vy += (ty - p.y) * k;
           p.vx *= 0.908;
           p.vy *= 0.908;
           p.x += p.vx;
@@ -217,7 +260,7 @@ export function ParticleSphere({
       container.removeEventListener("pointerleave", leave);
       window.removeEventListener("themechange", onThemeChange);
     };
-  }, [density]);
+  }, [density, assemble]);
   return (
     <div
       ref={hostRef}

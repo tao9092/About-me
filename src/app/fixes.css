@@ -1751,3 +1751,128 @@ html:not(.dark) .capability-field-empty span {
   .range-pause-actions { flex-direction:column;width:100%; }
   .range-pause-actions button { width:100%; }
 }
+
+/* Home opening / Hero: a light line with a flare at its head cuts across a
+   dark curtain; the curtain parts with light spilling through the gap; the name
+   rises letter by letter out of a blurred colour split while the particle sphere
+   gathers (ParticleSphere assemble) and its rings are drawn with a glowing tip;
+   the formed sphere sends out shockwaves as a sheen crosses the name.
+   CSS so it starts with the first paint; plays once per page load and is
+   skipped for reduced motion. */
+@property --ring-sweep { syntax:"<angle>";inherits:false;initial-value:360deg; }
+.hero-intro-curtain { display:none; }
+.hero-name-letters > span { display:inline-block; }
+@media (prefers-reduced-motion: no-preference) {
+  .hero-intro-curtain { display:block;position:absolute;inset:0;z-index:20;pointer-events:none; }
+  .hero-intro-curtain::before,
+  .hero-intro-curtain::after { content:"";position:absolute;z-index:2;left:0;right:0;height:50.5%;background:#010e0d; }
+  .hero-intro-curtain::before { top:0;animation:curtain-part-up .75s cubic-bezier(.76,0,.24,1) .7s both; }
+  .hero-intro-curtain::after { bottom:0;animation:curtain-part-down .75s cubic-bezier(.76,0,.24,1) .7s both; }
+  .curtain-line {
+    position:absolute;z-index:3;left:0;right:0;top:50%;height:2px;margin-top:-1px;
+    background:var(--aurora);
+    box-shadow:0 0 18px rgba(160,255,244,.75),0 0 60px rgba(160,255,244,.3);
+    transform-origin:left center;
+    animation:curtain-line 1.15s cubic-bezier(.65,0,.35,1) .1s both;
+  }
+  /* The flare rides the head of the line (same timing): a hot core and a streak. */
+  .curtain-flare {
+    position:absolute;z-index:3;top:50%;left:-90px;width:180px;height:180px;margin-top:-90px;
+    background:radial-gradient(closest-side,#fff,rgba(190,255,248,.75) 22%,rgba(150,240,255,.22) 55%,transparent);
+    mix-blend-mode:screen;
+    animation:curtain-flare 1.15s cubic-bezier(.65,0,.35,1) .1s both;
+  }
+  .curtain-flare::after {
+    content:"";position:absolute;left:50%;top:50%;width:560px;height:3px;margin:-1.5px 0 0 -280px;
+    background:linear-gradient(90deg,transparent,rgba(210,255,250,.85) 50%,transparent);
+  }
+  /* Light spilling through the opening, visible only between the halves. */
+  .curtain-bloom {
+    position:absolute;z-index:1;left:-10%;right:-10%;top:10%;bottom:10%;
+    background:radial-gradient(ellipse 55% 50% at 50% 50%,rgba(190,255,247,.6),rgba(150,120,255,.2) 45%,transparent 72%);
+    mix-blend-mode:screen;
+    animation:curtain-bloom 1.2s cubic-bezier(.22,1,.36,1) .62s both;
+  }
+  .hero-intro .auros-grid { animation:intro-fade 1.4s ease .9s both; }
+  .hero-intro .auros-kicker { animation:intro-fade-up .8s cubic-bezier(.16,1,.3,1) .85s both; }
+  .hero-intro .hero-name-letters > span {
+    animation:letter-rise 1.05s cubic-bezier(.16,1,.3,1) backwards;
+    animation-delay:calc(.95s + var(--letter) * .09s);
+  }
+  .hero-intro .auros-headline .auros-line-mask > span { animation:intro-rise .9s cubic-bezier(.16,1,.3,1) 1.25s both; }
+  .hero-intro .auros-lead { animation:intro-fade-up .9s cubic-bezier(.16,1,.3,1) 1.4s both; }
+  .hero-intro .auros-actions { animation:intro-fade-up .9s cubic-bezier(.16,1,.3,1) 1.55s both; }
+  /* Rings are drawn around with a conic mask and a glow, then keep their slow turn. */
+  .hero-intro .orb-ring {
+    -webkit-mask:conic-gradient(#000 var(--ring-sweep),transparent 0);
+    mask:conic-gradient(#000 var(--ring-sweep),transparent 0);
+  }
+  .hero-intro .ring-one { animation:ring-draw 1.1s cubic-bezier(.65,0,.35,1) 1.2s backwards,ring-turn 18s linear infinite; }
+  .hero-intro .ring-two { animation:ring-draw 1.3s cubic-bezier(.65,0,.35,1) 1.35s backwards,ring-turn 30s linear infinite reverse; }
+  .hero-intro .orb-label { animation:intro-pop .7s cubic-bezier(.16,1,.3,1) 1.6s both; }
+  .hero-intro .label-b { animation-delay:1.72s; }
+  .hero-intro .label-c { animation-delay:1.84s; }
+  .hero-intro .hero-status,
+  .hero-intro .scroll-signal { animation:intro-fade 1s ease 1.8s both; }
+  /* Two shockwaves leave the sphere as it locks into shape. */
+  .hero-intro .hero-orb-stage::before,
+  .hero-intro .hero-orb-stage::after {
+    content:"";position:absolute;z-index:4;inset:0;margin:auto;width:80%;aspect-ratio:1;border-radius:50%;
+    border:1px solid rgba(170,255,246,.7);
+    box-shadow:0 0 34px rgba(160,255,244,.35),inset 0 0 34px rgba(160,255,244,.18);
+    pointer-events:none;
+    animation:orb-shockwave 1.5s cubic-bezier(.16,1,.3,1) 2.05s both;
+  }
+  .hero-intro .hero-orb-stage::after { animation-delay:2.22s; }
+  /* A sheen crosses the name once it has landed: an identical transparent copy
+     of the text (unkerned like the letter spans) with a moving clipped gradient. */
+  .hero-intro .hero-name-letters { position:relative; }
+  .hero-intro .hero-name-letters::after {
+    content:attr(data-text);position:absolute;left:0;top:0;
+    font-kerning:none;color:transparent;pointer-events:none;
+    background:linear-gradient(105deg,transparent 42%,rgba(160,255,244,.95) 48%,rgba(245,200,255,.95) 52%,transparent 58%) no-repeat;
+    background-size:300% 100%;
+    -webkit-background-clip:text;background-clip:text;
+    animation:name-shine 1.2s cubic-bezier(.45,0,.2,1) 2.2s both;
+  }
+}
+@keyframes curtain-line {
+  0% { transform:scaleX(0); }
+  55% { transform:scaleX(1);opacity:1; }
+  100% { transform:scaleX(1);opacity:0; }
+}
+@keyframes curtain-flare {
+  0% { left:-90px;opacity:1; }
+  55% { left:calc(100% - 90px);opacity:1; }
+  72%, 100% { left:calc(100% - 90px);opacity:0; }
+}
+@keyframes curtain-bloom {
+  0% { opacity:0;transform:scaleY(.04); }
+  30% { opacity:1; }
+  100% { opacity:0;transform:scaleY(1.15); }
+}
+@keyframes curtain-part-up { to { transform:translateY(-100%); } }
+@keyframes curtain-part-down { to { transform:translateY(100%); } }
+@keyframes intro-fade { from { opacity:0; } }
+@keyframes intro-fade-up { from { opacity:0;transform:translateY(18px); } }
+@keyframes intro-rise { from { transform:translateY(120%); } }
+@keyframes letter-rise {
+  0% { transform:translateY(120%);filter:blur(12px);text-shadow:-.07em 0 rgba(255,70,150,.8),.07em 0 rgba(70,235,255,.8); }
+  55% { filter:blur(1px);text-shadow:-.02em 0 rgba(255,70,150,.55),.02em 0 rgba(70,235,255,.55); }
+  100% { transform:none;filter:blur(0);text-shadow:0 0 0 rgba(255,70,150,0),0 0 0 rgba(70,235,255,0); }
+}
+@keyframes intro-pop { from { opacity:0;transform:translateY(10px) scale(.92); } }
+@keyframes ring-draw {
+  0% { --ring-sweep:0deg;filter:drop-shadow(0 0 7px rgba(170,255,246,.95)); }
+  85% { filter:drop-shadow(0 0 7px rgba(170,255,246,.95)); }
+  100% { --ring-sweep:360deg;filter:drop-shadow(0 0 0 rgba(170,255,246,0)); }
+}
+@keyframes orb-shockwave {
+  0% { opacity:0;transform:scale(.9); }
+  12% { opacity:.95; }
+  100% { opacity:0;transform:scale(1.6); }
+}
+@keyframes name-shine {
+  from { background-position:100% 0; }
+  to { background-position:0 0; }
+}

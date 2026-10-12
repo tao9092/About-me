@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import {
   ArrowDown,
   ArrowUpRight,
@@ -6,11 +7,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { listContent, publicStats, siteProfile } from "@/lib/content";
-import {
-  AurosHeroMotion,
-  LineRise,
-  Reveal,
-} from "@/components/editorial-motion";
+import { AurosHeroMotion, Reveal } from "@/components/editorial-motion";
 import { ParticleSphere } from "@/components/particle-sphere";
 import { MusicalMetrics } from "@/components/musical-metrics";
 import { ScrambleText } from "@/components/scramble-text";
@@ -35,7 +32,12 @@ export default async function Home() {
   ];
   return (
     <div className="auros-home">
-      <section className="auros-hero">
+      <section className="auros-hero hero-intro">
+        <div className="hero-intro-curtain" aria-hidden>
+          <span className="curtain-bloom" />
+          <span className="curtain-line" />
+          <span className="curtain-flare" />
+        </div>
         <div className="auros-grid" aria-hidden />
         <div className="scan-line" aria-hidden />
         <div className="hero-status">
@@ -47,28 +49,40 @@ export default async function Home() {
         <div className="auros-hero-copy">
           <p className="auros-kicker">Personal Achievement Hub</p>
           <h1 className="auros-name">
-            <LineRise>Tao</LineRise>
+            <span className="sr-only">Tao</span>
+            <span
+              className="auros-line-mask hero-name-letters"
+              data-text="Tao"
+              aria-hidden
+            >
+              {Array.from("Tao").map((letter, index) => (
+                <span
+                  style={{ "--letter": index } as CSSProperties}
+                  key={index}
+                >
+                  {letter}
+                </span>
+              ))}
+            </span>
           </h1>
           <p className="auros-headline">
-            <LineRise delay={0.1}>{profile?.headline_en}</LineRise>
+            <span className="auros-line-mask">
+              <span>{profile?.headline_en}</span>
+            </span>
           </p>
-          <LineRise delay={0.22}>
-            <p className="auros-lead">{profile?.bio_en}</p>
-          </LineRise>
-          <LineRise delay={0.32}>
-            <div className="auros-actions">
-              <Link href="/projects" className="aurora-button">
-                Explore my work <ArrowUpRight />
-              </Link>
-              <Link href="/resume" className="ghost-button">
-                View résumé
-              </Link>
-            </div>
-          </LineRise>
+          <p className="auros-lead">{profile?.bio_en}</p>
+          <div className="auros-actions">
+            <Link href="/projects" className="aurora-button">
+              Explore my work <ArrowUpRight />
+            </Link>
+            <Link href="/resume" className="ghost-button">
+              View résumé
+            </Link>
+          </div>
         </div>
         <AurosHeroMotion>
           <div className="hero-orb-stage">
-            <ParticleSphere density="high" />
+            <ParticleSphere density="high" assemble />
             <div className="orb-ring ring-one" />
             <div className="orb-ring ring-two" />
             <div className="orb-label label-a">
