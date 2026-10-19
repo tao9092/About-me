@@ -1,1 +1,1 @@
-import{CollectionPage}from"@/components/collection-page";export default function Page({searchParams}:{searchParams:Promise<{q?:string}>}){return <CollectionPage table="experiences" searchParams={searchParams}/>}
+import{ExperienceLine}from"@/components/experience-line";export default function Page(){return <ExperienceLine/>}

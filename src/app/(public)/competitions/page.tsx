@@ -1,1 +1,1 @@
-import{CollectionPage}from"@/components/collection-page";export default function Page({searchParams}:{searchParams:Promise<{q?:string}>}){return <CollectionPage table="competitions" searchParams={searchParams}/>}
+import{CompetitionsRange}from"@/components/competitions-range";export default function Page(){return <CompetitionsRange/>}

@@ -46,6 +46,19 @@ export async function listContent(table: EntityTable, options: { admin?: boolean
     .slice(0, options.limit ?? 50);
 }
 
+/** Public image URLs for files by id: only published public files in the public bucket. */
+export async function publicFileUrls(ids: string[]) {
+  const urls = new Map<string, string>();
+  if (!isSupabaseConfigured() || ids.length === 0) return urls;
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("files").select("id,bucket,storage_path").in("id", ids).eq("status", "published").eq("visibility", "public");
+  if (error) throw error;
+  for (const file of data ?? []) {
+    if (file.bucket === "public-files" && file.storage_path) urls.set(file.id, supabase.storage.from("public-files").getPublicUrl(file.storage_path).data.publicUrl);
+  }
+  return urls;
+}
+
 export async function siteProfile() {
   if (!isSupabaseConfigured()) return { name_en:"Your Name", name_zh:"你的名字", headline_en:"Builder, learner & creative technologist", headline_zh:"创作者、学习者与科技实践者", bio_en:"A personal space for the work, competitions, credentials and experiences that shaped me.", bio_zh:"记录塑造我的项目、比赛、证书与经历的个人空间。" };
   const supabase = await createClient();

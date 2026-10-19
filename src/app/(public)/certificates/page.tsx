@@ -1,1 +1,1 @@
-import{CollectionPage}from"@/components/collection-page";export default function Page({searchParams}:{searchParams:Promise<{q?:string}>}){return <CollectionPage table="certificates" searchParams={searchParams}/>}
+import{CertificatesOrbit}from"@/components/certificates-orbit";export default function Page(){return <CertificatesOrbit/>}

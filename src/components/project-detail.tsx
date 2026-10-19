@@ -5,7 +5,9 @@ import { ArrowLeft, ArrowRight, ArrowUpRight, LockKeyhole } from "lucide-react";
 import { getPublicContent, listContent } from "@/lib/content";
 import { sanitizeRichText } from "@/lib/sanitize";
 import { CircuitArt } from "@/components/circuit-art";
-import { initials, inkFor, pad, TAPE } from "@/lib/project-board";
+import { BootFade } from "@/components/lab-card-link";
+import { labFont } from "@/components/lab-font";
+import { initials, inksFor, pad, TAPE } from "@/lib/project-board";
 import "./projects-lab.css";
 import "./project-detail.css";
 
@@ -16,10 +18,12 @@ import "./project-detail.css";
 // board is powered down and crossed with tape, and its title sits on a notice
 // over the crossing, in place of the write-up.
 export async function ProjectDetail({ slug }: { slug: string }) {
-  const [row, rows] = await Promise.all([getPublicContent("projects", slug), listContent("projects")]);
+  const [row, rows] = await Promise.all([getPublicContent("projects", slug), listContent("projects", { limit: 200 })]);
   if (!row) notFound();
   const index = Math.max(0, rows.findIndex((item) => item.slug === slug));
-  const ink = inkFor(index);
+  const inks = inksFor([...rows.map((item) => String(item.slug)), slug]);
+  const inkFor = (key: string) => inks.get(key) ?? "141,255,240";
+  const ink = inkFor(slug);
   const locked = row.visibility === "protected";
   const title = String(row.title_en);
   const stack = Array.isArray(row.tech_stack) ? row.tech_stack.map(String) : [];
@@ -39,7 +43,8 @@ export async function ProjectDetail({ slug }: { slug: string }) {
   ];
 
   return (
-    <article className={`pd${locked ? " is-locked" : ""}`} style={{ "--ink": locked ? "255,210,31" : ink } as CSSProperties}>
+    <article className={`pd ${labFont.variable}${locked ? " is-locked" : ""}`} style={{ "--ink": locked ? "255,210,31" : ink } as CSSProperties}>
+      <BootFade />
       <header className="pd-hero">
         <div className="pd-board" data-board>
           <CircuitArt slug={slug} label={initials(title)} color={ink} locked={locked} chip={locked ? { x: 0.5, y: 0.5, max: 200 } : { x: 0.72, y: 0.4, max: 230 }} />
@@ -144,7 +149,7 @@ export async function ProjectDetail({ slug }: { slug: string }) {
                 href={`/projects/${String(project.slug)}`}
                 key={label as string}
                 className={label === "Next" ? "is-next" : undefined}
-                style={{ "--ink": isPrivate ? "255,210,31" : inkFor(position) } as CSSProperties}
+                style={{ "--ink": isPrivate ? "255,210,31" : inkFor(String(project.slug)) } as CSSProperties}
               >
                 <span>
                   {label === "Previous" && <ArrowLeft />}

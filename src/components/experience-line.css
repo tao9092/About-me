@@ -1,0 +1,108 @@
+/* The Experience page as a night railway timetable (experience-line.tsx):
+   midnight blue, amber signal light, transit lettering (Big Shoulders) over a
+   mono for times. The light theme turns to a daytime platform: paper and ink,
+   the board staying dark as boards do. */
+body:has(.xp) {
+  --xp-bg:#080b12; --xp-panel:#0f1420; --xp-line:rgba(200,212,255,.1); --xp-ink:#e8ebf3; --xp-muted:#8790a6;
+  --xp-amber:#ffb22e; --xp-amber-dim:rgba(255,178,46,.16); --xp-mono:var(--font-geist-mono),ui-monospace,monospace;
+}
+html:not(.dark) body:has(.xp) {
+  --xp-bg:#eef0f3; --xp-panel:#e2e5ea; --xp-line:rgba(14,18,28,.13); --xp-ink:#10141d; --xp-muted:#5e6575;
+  --xp-amber:#c77700; --xp-amber-dim:rgba(199,119,0,.14);
+}
+html body:has(.xp.xp) { background:radial-gradient(ellipse 120% 60% at 50% -10%,color-mix(in srgb,var(--xp-amber) 9%,transparent),transparent 60%),var(--xp-bg)!important; color:var(--xp-ink)!important; }
+body:has(.xp) .public-main { background:transparent!important; }
+body:has(.xp) .auros-nav { background:color-mix(in srgb,var(--xp-bg) 86%,transparent)!important; border-color:var(--xp-line)!important; }
+body:has(.xp) .site-footer { background:transparent!important; border-color:var(--xp-line)!important; color:var(--xp-muted)!important; }
+
+.xp { padding-top:56px; color:var(--xp-ink); }
+.xp-kicker { display:flex; align-items:center; gap:12px; margin:0; color:var(--xp-muted); font:500 11px var(--xp-mono); text-transform:uppercase; letter-spacing:.16em; }
+.xp-kicker span { padding:4px 8px; border-radius:3px; background:var(--xp-amber); color:#16110a; font-weight:700; }
+.xp-head h1 { margin:18px 0 0 -.02em; font:800 clamp(5rem,17vw,16rem)/.8 var(--xp-sign),sans-serif; text-transform:uppercase; letter-spacing:-.01em; animation:xp-rise 1.1s cubic-bezier(.16,1,.3,1) both; }
+
+/* The split-flap board. It stays dark in both themes. */
+.xp-board { margin-top:clamp(30px,5vw,56px); padding:clamp(14px,2vw,22px); border:1px solid #1d2433; border-radius:12px; background:linear-gradient(180deg,#121722,#0b0f17); box-shadow:0 30px 80px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.04); color:#e8ebf3; }
+.xp-board-top { display:flex; align-items:baseline; gap:18px; padding:4px 6px 16px; border-bottom:1px solid #1d2433; }
+.xp-board-top strong { color:#ffb22e; font:700 clamp(26px,3vw,38px)/1 var(--xp-sign),sans-serif; text-transform:uppercase; letter-spacing:.04em; }
+.xp-board-top>span:not(.xp-clock) { flex:1; color:#8790a6; font:500 11px var(--xp-mono); text-transform:uppercase; letter-spacing:.14em; }
+.xp-clock { color:#ffb22e; font:500 clamp(18px,2vw,26px) var(--xp-mono); letter-spacing:.06em; }
+.xp-board-row { display:grid; grid-template-columns:150px minmax(0,1.5fr) minmax(0,1.1fr) 150px 150px; gap:16px; align-items:center; padding:12px 6px; border-bottom:1px solid #161c29; color:inherit; transition:background .25s; }
+.xp-board-row:last-child { border-bottom:0; }
+a.xp-board-row:hover { background:rgba(255,178,46,.05); }
+.xp-board-labels { color:#5f687c; font:500 10px var(--xp-mono); text-transform:uppercase; letter-spacing:.16em; }
+.xp-board-row>span { min-width:0; overflow:hidden; }
+.xp-board-row .is-live .xp-flap-word span { color:#5dff9a; }
+.xp-board-empty { padding:24px 6px; color:#8790a6; font:500 12px var(--xp-mono); text-transform:uppercase; letter-spacing:.14em; }
+/* Each letter on its own flap: a dark tile split across the middle. */
+.xp-flap { display:inline-flex; flex-wrap:wrap; gap:4px .6em; font:600 clamp(13px,1.15vw,17px)/1 var(--xp-mono); text-transform:uppercase; }
+.xp-flap-word { display:inline-flex; gap:2px; }
+.xp-flap-word span { position:relative; display:inline-grid; place-items:center; min-width:1.05em; height:1.6em; border-radius:2px; background:linear-gradient(180deg,#1c2230 0 49%,#0a0d14 49% 51%,#161b27 51% 100%); color:#ffd27a; box-shadow:inset 0 -1px 0 rgba(0,0,0,.4); }
+
+/* The line: a lit track down the left, a train riding it with the scroll. */
+.xp-line-head { display:flex; align-items:baseline; justify-content:space-between; gap:16px; margin-top:clamp(56px,8vw,110px); padding-bottom:14px; border-bottom:1px solid var(--xp-line); }
+.xp-line-head h2 { margin:0; font:700 clamp(34px,4.6vw,64px)/1 var(--xp-sign),sans-serif; text-transform:uppercase; }
+.xp-line-head span { color:var(--xp-muted); font:500 11px var(--xp-mono); text-transform:uppercase; letter-spacing:.14em; }
+.xp-line { --ride:0; position:relative; padding:40px 0 20px 90px; }
+.xp-track { position:absolute; left:30px; top:0; bottom:0; width:14px; background:repeating-linear-gradient(180deg,transparent 0 10px,var(--xp-line) 10px 13px); }
+.xp-track::before,.xp-track::after { content:""; position:absolute; top:0; bottom:0; width:2px; background:var(--xp-line); }
+.xp-track::before { left:0; }
+.xp-track::after { right:0; }
+/* The lit stretch behind the train, and the train itself. */
+.xp-train { position:absolute; left:-7px; top:0; width:28px; height:calc(var(--ride) * 100%); background:linear-gradient(180deg,transparent,var(--xp-amber-dim) 30%,var(--xp-amber-dim)); border-radius:14px; }
+.xp-train::after { content:""; position:absolute; left:50%; bottom:-22px; width:18px; height:44px; margin-left:-9px; border-radius:9px 9px 5px 5px; background:linear-gradient(180deg,#ffe0a3,var(--xp-amber) 40%,#a35e00); box-shadow:0 0 24px var(--xp-amber),0 10px 40px rgba(255,178,46,.55); }
+.xp-stop { position:relative; display:grid; grid-template-columns:minmax(150px,220px) minmax(0,1fr); gap:clamp(24px,4vw,64px); padding:40px 0 56px; border-bottom:1px solid var(--xp-line); }
+.xp-stop::before { content:""; position:absolute; left:-69px; top:50px; width:20px; height:20px; border:2px solid var(--xp-muted); border-radius:50%; background:var(--xp-bg); transition:border-color .4s,box-shadow .4s,background .4s; }
+.xp-stop.is-reached::before,.xp-terminus.is-reached::before { border-color:var(--xp-amber); background:var(--xp-amber); box-shadow:0 0 0 6px var(--xp-amber-dim),0 0 22px var(--xp-amber); }
+.xp-stop-when strong { display:block; font:300 clamp(64px,8vw,112px)/.82 var(--xp-sign),sans-serif; color:var(--xp-muted); transition:color .5s; }
+.xp-stop.is-reached .xp-stop-when strong { color:var(--xp-amber); }
+.xp-stop-when span { display:block; margin-top:14px; font:500 11px var(--xp-mono); text-transform:uppercase; letter-spacing:.12em; }
+.xp-stop-when em { display:block; margin-top:6px; color:var(--xp-muted); font:500 11px var(--xp-mono); font-style:normal; letter-spacing:.08em; }
+.xp-stop-class { display:flex; align-items:center; gap:10px; margin:0; color:var(--xp-muted); font:500 11px var(--xp-mono); text-transform:uppercase; letter-spacing:.16em; }
+.xp-stop-class b { padding:3px 8px; border-radius:3px; background:var(--xp-amber); color:#16110a; font-weight:700; letter-spacing:.1em; animation:xp-blink 2.4s ease-in-out infinite; }
+.xp-stop h3 { margin:14px 0 0; font:700 clamp(30px,3.6vw,52px)/.95 var(--xp-sign),sans-serif; text-transform:uppercase; letter-spacing:.005em; }
+.xp-stop-org { margin:10px 0 0; color:var(--xp-amber); font-size:17px; }
+.xp-stop-summary { max-width:640px; margin:18px 0 0; color:var(--xp-muted); font-size:16px; line-height:1.6; }
+/* Skills as the stops on a route: dots on a line. */
+.xp-stop-skills { display:flex; flex-wrap:wrap; gap:10px 0; margin:24px 0 0; padding:0; list-style:none; }
+.xp-stop-skills li { position:relative; padding:0 22px 0 16px; font:500 12px var(--xp-mono); letter-spacing:.04em; }
+.xp-stop-skills li::before { content:""; position:absolute; left:0; top:50%; width:8px; height:8px; margin-top:-4px; border:2px solid var(--xp-amber); border-radius:50%; }
+.xp-stop-skills li::after { content:""; position:absolute; right:4px; top:50%; width:12px; height:2px; margin-top:-1px; background:var(--xp-line); }
+.xp-stop-skills li:last-child::after { display:none; }
+.xp-stop-log { margin-top:24px; border-top:1px solid var(--xp-line); }
+.xp-stop-log summary { display:flex; justify-content:space-between; padding:14px 0; color:var(--xp-ink); font:500 11px var(--xp-mono); text-transform:uppercase; letter-spacing:.14em; cursor:pointer; list-style:none; }
+.xp-stop-log summary::-webkit-details-marker { display:none; }
+.xp-stop-log summary::after { content:"+"; color:var(--xp-amber); font-size:16px; transition:transform .3s; }
+.xp-stop-log[open] summary::after { transform:rotate(45deg); }
+.xp-stop-log>div { color:var(--xp-muted); font-size:16px; line-height:1.65; animation:xp-rise .5s cubic-bezier(.16,1,.3,1); }
+.xp-stop-log ul { padding-left:18px; }
+.xp-stop-log li { margin:6px 0; }
+.xp-stop-log strong { color:var(--xp-ink); }
+.xp-stop-link { display:inline-block; margin-top:16px; color:var(--xp-amber); font:500 12px var(--xp-mono); text-transform:uppercase; letter-spacing:.12em; }
+.xp-terminus { position:relative; padding:44px 0 20px; }
+.xp-terminus::before { content:""; position:absolute; left:-71px; top:44px; width:24px; height:24px; border:2px dashed var(--xp-muted); border-radius:50%; background:var(--xp-bg); transition:border-color .4s,box-shadow .4s,background .4s; }
+.xp-terminus span { display:block; color:var(--xp-muted); font:500 11px var(--xp-mono); text-transform:uppercase; letter-spacing:.16em; }
+.xp-terminus strong { display:block; margin-top:8px; font:500 clamp(26px,3vw,40px)/1 var(--xp-sign),sans-serif; text-transform:uppercase; color:var(--xp-muted); }
+
+@keyframes xp-rise { from { opacity:0; transform:translateY(24px); } }
+@keyframes xp-blink { 50% { opacity:.55; } }
+
+@media (max-width:1000px) {
+  .xp-board-row { grid-template-columns:120px minmax(0,1fr) minmax(0,1fr); }
+  .xp-board-row>span:nth-child(4),.xp-board-row>span:nth-child(5) { display:none; }
+}
+@media (max-width:700px) {
+  .xp { padding-top:36px; }
+  .xp-board-top { flex-wrap:wrap; gap:8px 14px; }
+  .xp-board-top span { order:3; flex-basis:100%; }
+  .xp-board-row { grid-template-columns:1fr; gap:8px; padding:14px 4px; }
+  .xp-board-labels { display:none; }
+  .xp-line { padding-left:52px; }
+  .xp-track { left:12px; }
+  .xp-stop { grid-template-columns:1fr; gap:18px; }
+  .xp-stop::before { left:-49px; }
+  .xp-terminus::before { left:-51px; }
+  .xp-line-head { flex-direction:column; gap:6px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .xp-head h1,.xp-stop-class b,.xp-stop-log>div { animation:none!important; }
+}
