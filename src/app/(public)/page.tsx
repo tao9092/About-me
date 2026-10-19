@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { listContent, publicStats, siteProfile } from "@/lib/content";
 import { AurosHeroMotion, Reveal } from "@/components/editorial-motion";
+import { IntroGate } from "@/components/intro-gate";
 import { ParticleSphere } from "@/components/particle-sphere";
 import { MusicalMetrics } from "@/components/musical-metrics";
 import { ScrambleText } from "@/components/scramble-text";
@@ -43,6 +44,7 @@ export default async function Home() {
           <span className="curtain-line" />
           <span className="curtain-flare" />
         </div>
+        <IntroGate />
         <div className="auros-grid" aria-hidden />
         <div className="scan-line" aria-hidden />
         <div className="hero-status">

@@ -4,8 +4,9 @@
 // rifle shot over a windy range, the sun breaking out from behind Saturn, an
 // old steam train thundering past, the drift through a dreamlike black hole.
 // Nothing is downloaded. A score starts with the cover, holds its loops while
-// the next page loads, and plays out its ending with the reveal. Visitors can
-// switch it off in the nav (setSoundEnabled).
+// the next page loads, and plays out its ending with the reveal. Under each page
+// its scene also plays on quietly as a loop (setAmbience), sinking beneath the
+// shutters. Visitors can switch it all off in the nav (setSoundEnabled).
 import type { FxName } from "@/components/route-fx";
 
 type Room = "hall" | "space";
@@ -17,6 +18,7 @@ type Rig = {
   noise: AudioBuffer; // white
   pink: AudioBuffer;
   crackle: AudioBuffer | null; // a record's surface noise, two turns long
+  hush: AudioBuffer | null; // a gentler one for the home page's ambience
   // The range's open air: the wind runs through one low-pass (which bullet time
   // closes), and the hills carry a shot's rolling tail.
   range: { world: BiquadFilterNode; hills: ConvolverNode } | null;
@@ -57,6 +59,7 @@ export function setSoundEnabled(on: boolean) {
   }
   if (!on) playing?.end();
   if (rig) rig.out.gain.setTargetAtTime(on ? LEVEL : 0, rig.ctx.currentTime, 0.05);
+  syncAmbience();
   listeners.forEach((listener) => listener());
 }
 export function subscribeSound(listener: () => void) {
@@ -129,6 +132,11 @@ function crackle() {
   rig.crackle ??= crackleLoop(rig.ctx);
   return rig.crackle;
 }
+function hush() {
+  if (!rig) return null;
+  rig.hush ??= crackleLoop(rig.ctx, true);
+  return rig.hush;
+}
 function openAir() {
   if (!rig) return null;
   if (!rig.range) {
@@ -174,7 +182,7 @@ function getRig(): Rig | null {
     rooms[name] = ctx.createGain();
     rooms[name].connect(reverbs[name]).connect(out);
   }
-  rig = { ctx, out, rooms, reverbs, noise: whiteNoise(ctx), pink: pinkNoise(ctx), crackle: null, range: null };
+  rig = { ctx, out, rooms, reverbs, noise: whiteNoise(ctx), pink: pinkNoise(ctx), crackle: null, hush: null, range: null };
   return rig;
 }
 
@@ -241,8 +249,10 @@ function impulse(ctx: BaseAudioContext, seconds: number, decay: number, options:
 /** A record's surface noise, two turns of the platter long so it loops cleanly,
  * after a common layered model of vinyl: a soft hiss and low rumble, a fizz of
  * fine dust, crisp ticks, sparse resonant pops of every pitch, and one scratch
- * that comes round with every turn. */
-function crackleLoop(ctx: BaseAudioContext) {
+ * that comes round with every turn. Gentle, for listening to at length, leaves
+ * out the ticks and the scratch and keeps the pops few, low, soft and near the
+ * middle: bright pops far to one side sound like drops falling by the ear. */
+function crackleLoop(ctx: BaseAudioContext, gentle = false) {
   const rate = ctx.sampleRate;
   const turn = 1.8; // 33⅓ rpm
   const length = Math.floor(rate * turn * 2);
@@ -264,7 +274,7 @@ function crackleLoop(ctx: BaseAudioContext) {
       if (index + 1 < length) data[index + 1] += level * 0.5;
     }
     // Ticks: crisp, bright clicks.
-    for (let index = 0; index < length - 2; index += Math.ceil(rate * -Math.log(1 - Math.random()) / 7)) {
+    for (let index = 0; !gentle && index < length - 2; index += Math.ceil(rate * -Math.log(1 - Math.random()) / 7)) {
       const level = rand(0.03, 0.16);
       data[index] += level;
       data[index + 1] -= level * 0.9;
@@ -283,9 +293,11 @@ function crackleLoop(ctx: BaseAudioContext) {
       channels[1][index] += y * (1 + pan) * 0.5;
     }
   };
-  for (let at = 0; at < length; at += Math.ceil(rate * -Math.log(1 - Math.random()) * 0.42)) {
-    pop(at, Math.exp(rand(Math.log(120), Math.log(5000))), rand(0.0015, 0.03), Math.exp(rand(Math.log(0.04), Math.log(0.5))) * 0.15, rand(-0.7, 0.7));
+  const [spacing, top, loudest, spread] = gentle ? [1.6, 1200, 0.15, 0.25] : [0.42, 5000, 0.5, 0.7];
+  for (let at = 0; at < length; at += Math.ceil(rate * -Math.log(1 - Math.random()) * spacing)) {
+    pop(at, Math.exp(rand(Math.log(120), Math.log(top))), rand(0.0015, 0.03), Math.exp(rand(Math.log(0.04), Math.log(loudest))) * 0.15, rand(-spread, spread));
   }
+  if (gentle) return buffer;
   const scratch = Math.floor(rate * 0.37);
   for (const at of [scratch, scratch + Math.floor(rate * turn)]) pop(at, 900, 0.012, 0.09, -0.2);
   return buffer;
@@ -321,7 +333,16 @@ function track<T extends AudioScheduledSourceNode>(voice: Voice, source: T, offs
   if (source instanceof AudioBufferSourceNode) source.start(voice.at, offset);
   else source.start(voice.at);
   source.stop(voice.at + voice.length + 0.05);
-  voice.into?.sources.push(source);
+  const into = voice.into;
+  if (into) {
+    into.sources.push(source);
+    // A page's ambience runs for as long as the visitor stays, so spent voices
+    // are let go rather than kept for its release.
+    source.addEventListener("ended", () => {
+      const index = into.sources.indexOf(source);
+      if (index >= 0) into.sources.splice(index, 1);
+    }, { once: true });
+  }
   return source;
 }
 /** Filtered noise: wind, hiss, steam, the crack of a shot. */
@@ -962,9 +983,450 @@ export function playShutterSound(variant: FxName, times: { cover: number; reveal
     },
     end: () => {
       for (const into of score.held) release(r, into, r.ctx.currentTime, 0.4);
-      if (playing === self) playing = null;
+      if (playing === self) {
+        playing = null;
+        duckAmbience();
+      }
     },
   };
   playing = self;
+  duckAmbience();
   return self;
+}
+
+// ── The ambience: each page's scene, held as a quiet loop ────────────────────
+// Each starts from the time it's given and plays into its hold until released;
+// patterns use repeat, so they never quite come round the same way twice. They
+// are made to sit back and soothe, after ASMR recordings: soft sounds with no
+// hard edges, small details close by that drift slowly from ear to ear, and a
+// gentle low-pass over each scene (soft, in Hz) taking the glare off the top.
+type Ambient = { room: Room; send: number; soft: number; play: (r: Rig, at: number, into: Hold) => void };
+const FOREVER = 86400; // a voice that lasts until the ambience is released
+const forever = (at: number, gain: number, attack: number, into: Hold) => ({ at, length: FOREVER, gain, attack, hold: FOREVER - attack - 1, into });
+
+/** A place in the stereo field that drifts slowly from side to side. */
+function drifting(r: Rig, at: number, into: Hold, rate: number, width: number, to: AudioNode = into.bus) {
+  const panner = r.ctx.createStereoPanner();
+  panner.connect(to);
+  wobble(r, panner.pan, rate, width, { at, length: FOREVER, gain: 0, into });
+  return panner;
+}
+/** A soft brush stroke close by: pink noise through the airy highs, swelling and
+ * fading with no edge to it. */
+const brush = (r: Rig, at: number, length: number, gain: number, pan: number, into: Hold, freq = 3200, to?: AudioNode) =>
+  noise(r, { at, length, gain, attack: length * 0.45, filter: "bandpass", freq, sweep: freq * rand(0.8, 1.25), q: 0.8, pink: true, pan, into, to });
+/** A soft tap, like a fingertip on a desk or a drop on glass: a muted click with
+ * a little body under it. */
+function tap(r: Rig, at: number, gain: number, pan: number, into: Hold, freq = rand(1400, 2600), to?: AudioNode) {
+  noise(r, { at, length: 0.035, gain, attack: 0.003, filter: "bandpass", freq, q: 2.2, pan, into, to });
+  tone(r, { at, length: 0.05, gain: gain * 0.3, attack: 0.003, freq: freq / 6, pan, into, to });
+}
+
+const ambients: Record<FxName, Ambient> = {
+  // Home: the record plays on, low, in a quiet room. Its crackle hushed, a slow
+  // lo-fi groove under it: one electric piano chord to the bar, a felt kick and
+  // brushes, all through a warm tape chain with its wow and flutter, and now and
+  // then a sleeve brushing past close by.
+  vinyl: {
+    room: "hall",
+    send: 0.12,
+    soft: 4200,
+    play: (r, at, into) => {
+      const surface = r.ctx.createBufferSource();
+      surface.buffer = hush();
+      surface.loop = true;
+      const surfaceLevel = r.ctx.createGain();
+      surfaceLevel.gain.value = 0.25;
+      const dull = r.ctx.createBiquadFilter();
+      dull.type = "lowpass";
+      dull.frequency.value = 2500;
+      surface.connect(dull).connect(surfaceLevel).connect(into.bus);
+      track({ at, length: FOREVER, gain: 0, into }, surface);
+      // Wow and flutter: a wavering delay bends the pitch of everything through it.
+      const tape = r.ctx.createDelay(0.05);
+      tape.delayTime.value = 0.01;
+      for (const [rate, depth] of [[0.55, 0.0012], [5.6, 0.00004]]) wobble(r, tape.delayTime, rate, depth, { at, length: FOREVER, gain: 0, into });
+      const music = r.ctx.createGain();
+      music.gain.value = 0.05;
+      const warmth = r.ctx.createBiquadFilter();
+      warmth.type = "lowpass";
+      warmth.frequency.value = 2200;
+      warmth.Q.value = 0.4;
+      const drive = r.ctx.createWaveShaper();
+      drive.curve = saturation(1.2);
+      music.connect(tape).connect(warmth).connect(drive).connect(into.bus);
+      const chords = [
+        [53, 57, 60, 64, 67], // Fmaj9
+        [52, 55, 59, 62], // Em7
+        [50, 53, 57, 60, 64], // Dm9
+        [48, 52, 55, 59, 62], // Cmaj9
+      ];
+      const beat = 60 / 70;
+      let count = 0;
+      repeat(r, into, at + 0.6, (when) => {
+        const step = count % 4;
+        if (step === 0) {
+          chords[Math.floor(count / 4) % chords.length].forEach((midi, index) => rhodes(r, when + index * 0.02, midi, rand(0.5, 0.65), beat * 3.6, into, music, []));
+        }
+        if (step === 0 || (step === 2 && Math.random() < 0.6)) tone(r, { at: when, length: 0.4, gain: 0.25, attack: 0.012, freq: 80, glide: 48, into, to: music }); // the felt kick
+        if (step === 1 || step === 3) brush(r, when - 0.05, 0.35, 0.05, step === 1 ? -0.4 : 0.4, into, 3000, music);
+        brush(r, when + beat * 0.56, 0.12, 0.012, count % 2 ? 0.5 : -0.5, into, 6000, music); // swung
+        count += 1;
+        return when + beat;
+      });
+      repeat(r, into, at + rand(4, 8), (when) => {
+        brush(r, when, rand(0.9, 1.5), 0.008, rand(-0.85, 0.85), into, 2500);
+        return when + rand(6, 14);
+      });
+    },
+  },
+
+  // Projects: late at night at the desk. A low, warm hum and the hush of a fan
+  // drifting in the room, a slow, soft arpeggio working through its chords, and
+  // keys typed in quiet runs, close by, now on one side, now the other.
+  code: {
+    room: "hall",
+    send: 0.15,
+    soft: 3800,
+    play: (r, at, into) => {
+      tone(r, { ...forever(at, 0.02, 4, into), freq: 55 });
+      tone(r, { ...forever(at, 0.006, 5, into), freq: 110 });
+      noise(r, { ...forever(at, 0.018, 4, into), filter: "lowpass", freq: 320, pink: true, to: drifting(r, at, into, 0.03, 0.3) }); // the fan
+      const arps = [
+        [57, 60, 64, 67], // Am7
+        [53, 57, 60, 64], // Fmaj7
+        [48, 52, 55, 59], // Cmaj7
+        [55, 59, 62, 65], // G7
+      ];
+      let step = 0;
+      repeat(r, into, at + 1, (when) => {
+        const chord = arps[Math.floor(step / 16) % arps.length];
+        const midi = chord[[0, 1, 2, 3, 2, 1, 3, 2][step % 8]] + (step % 16 >= 8 ? 12 : 0);
+        tone(r, { at: when, length: 0.6, gain: step % 4 === 0 ? 0.012 : 0.008, attack: 0.02, freq: note(midi), pan: Math.sin(step * 0.7) * 0.4, into });
+        step += 1;
+        return when + 0.36;
+      });
+      // Typing: a run of soft keys, each a little off from the last, and a space bar now and then.
+      repeat(r, into, at + rand(2, 4), (when) => {
+        const side = rand(-0.6, 0.6);
+        const keys = Math.floor(rand(4, 15));
+        let key = when;
+        for (let k = 0; k < keys; k += 1) {
+          if (Math.random() < 0.15) tap(r, key, 0.02, side, into, rand(800, 1000));
+          else tap(r, key, rand(0.012, 0.02), side + rand(-0.15, 0.15), into);
+          key += rand(0.07, 0.16);
+        }
+        return key + rand(2, 6);
+      });
+    },
+  },
+
+  // Competitions: the range at dusk, out in the grass. A soft wind breathing
+  // slowly in and out and drifting across, the grass rustling close by on either
+  // side, and birds calling, faint and far off.
+  scope: {
+    room: "hall",
+    send: 0.06,
+    soft: 4500,
+    play: (r, at, into) => {
+      // The wind's body sits in the low mids, where any speaker carries it; its
+      // breath and the leaves above, the grass's hush higher still.
+      const rush = noise(r, { ...forever(at, 0.11, 4, into), filter: "lowpass", freq: 520, q: 0.5, pink: true, to: drifting(r, at, into, 0.05, 0.5) });
+      const breath = noise(r, { ...forever(at, 0.04, 5, into), filter: "bandpass", freq: 800, q: 0.6, pink: true, to: drifting(r, at, into, 0.037, -0.6) });
+      const leaves = noise(r, { ...forever(at, 0.018, 5, into), filter: "bandpass", freq: 1500, q: 0.8, pink: true, to: drifting(r, at, into, 0.029, 0.7) });
+      const grass = noise(r, { ...forever(at, 0.012, 5, into), filter: "bandpass", freq: 3500, q: 0.7, pink: true, to: drifting(r, at, into, 0.023, 0.8) });
+      // Gusts come and go slowly, never sharply.
+      repeat(r, into, at + 4, (when) => {
+        const strength = rand(0.1, 0.6);
+        rush.filter.frequency.setTargetAtTime(lerp(400, 800, strength), when, 2.5);
+        rush.shape.gain.setTargetAtTime(lerp(0.08, 0.15, strength), when, 2.8);
+        breath.filter.frequency.setTargetAtTime(lerp(650, 1100, strength), when, 3);
+        breath.shape.gain.setTargetAtTime(lerp(0.025, 0.06, strength), when, 2.8);
+        leaves.shape.gain.setTargetAtTime(lerp(0.01, 0.03, strength), when, 2.6);
+        grass.shape.gain.setTargetAtTime(lerp(0.008, 0.02, strength), when, 2.5);
+        return when + rand(3, 6);
+      });
+      // The grass brushing close by.
+      repeat(r, into, at + 2, (when) => {
+        brush(r, when, rand(0.8, 1.6), rand(0.015, 0.028), rand(-0.9, 0.9), into, rand(2000, 4000));
+        return when + rand(2, 5);
+      });
+      // A bird: a few soft rising calls, far away.
+      repeat(r, into, at + rand(5, 9), (when) => {
+        const pan = rand(-0.9, 0.9);
+        const pitch = rand(2000, 3000);
+        const calls = Math.floor(rand(2, 4));
+        for (let k = 0; k < calls; k += 1) {
+          tone(r, { at: when + k * rand(0.16, 0.24), length: 0.14, gain: rand(0.006, 0.012), attack: 0.02, freq: pitch, glide: pitch * rand(1.1, 1.2), pan, into });
+        }
+        return when + rand(8, 18);
+      });
+    },
+  },
+
+  // Certificates: drifting by Saturn. The deep drone, a soft choir moving slowly
+  // through its chords, a faint wind wandering from ear to ear and ice in the
+  // rings glinting gently, far out in space.
+  saturn: {
+    room: "space",
+    send: 0.45,
+    soft: 2600,
+    play: (r, at, into) => {
+      tone(r, { ...forever(at, 0.04, 6, into), freq: 41 });
+      const choir = r.ctx.createBiquadFilter();
+      choir.type = "lowpass";
+      choir.frequency.value = 600;
+      choir.connect(into.bus);
+      wobble(r, choir.frequency, 0.04, 200, { at, length: FOREVER, gain: 0, into });
+      const chords = [
+        [45, 52, 57, 61, 64], // A
+        [42, 49, 54, 57, 64], // F#m
+        [38, 45, 52, 57, 61], // D
+        [40, 47, 52, 56, 59], // E
+      ];
+      let count = 0;
+      repeat(r, into, at, (when) => {
+        for (const midi of chords[count % chords.length]) {
+          for (const detune of [-7, 6]) {
+            tone(r, { at: when, length: 26, gain: 0.008, attack: 8, hold: 9, wave: "triangle", freq: note(midi), detune, pan: detune / 14, to: choir, into });
+          }
+        }
+        count += 1;
+        return when + 17;
+      });
+      noise(r, { ...forever(at, 0.01, 5, into), filter: "bandpass", freq: 500, q: 0.7, pink: true, to: drifting(r, at, into, 0.03, 0.6) });
+      repeat(r, into, at + 2, (when) => {
+        tone(r, { at: when, length: 0.9, gain: rand(0.002, 0.005), attack: 0.015, freq: rand(2400, 4800), pan: rand(-0.8, 0.8), into });
+        return when + rand(0.6, 2);
+      });
+      repeat(r, into, at + rand(5, 9), (when) => {
+        brush(r, when, 2, 0.003, rand(-0.7, 0.7), into, 5000);
+        return when + rand(7, 15);
+      });
+    },
+  },
+
+  // Experience: aboard the night express, by the window. The track's roar soft
+  // and low through the carriage walls, the wheels rolling over the joints, the
+  // engine far ahead, rain pattering on the glass close at one side, and now and
+  // then the whistle calling faintly into the dark.
+  train: {
+    room: "hall",
+    send: 0.05,
+    soft: 2200,
+    play: (r, at, into) => {
+      const walls = r.ctx.createBiquadFilter();
+      walls.type = "lowpass";
+      walls.frequency.value = 1100;
+      walls.connect(into.bus);
+      const rolling = { ...forever(at, 0.05, 4, into), to: walls };
+      noise(r, { ...rolling, filter: "lowpass", freq: 160, pink: true });
+      const roar = noise(r, { ...rolling, gain: 0.03, filter: "bandpass", freq: 420, q: 0.5, pink: true });
+      wobble(r, roar.filter.frequency, 1 / 1.1, 60, rolling); // swelling with each bogie
+      const ahead = r.ctx.createBiquadFilter();
+      ahead.type = "lowpass";
+      ahead.frequency.value = 600;
+      ahead.connect(walls);
+      let k = 0;
+      repeat(r, into, at + 1, (when) => {
+        for (const [offset, gain, pan] of [[0, 0.03, -0.2], [0.09, 0.022, -0.2], [0.55, 0.026, 0.2], [0.64, 0.02, 0.2]]) tap(r, when + offset, gain, pan, into, rand(900, 1300), walls);
+        for (let n = 0; n < 4; n += 1) chuff(r, when + n * 0.275, 0.035 * CHUFF_ACCENT[k++ % 4], 0.22, ahead, into);
+        return when + 1.1;
+      });
+      // Rain on the window, on the left: a soft wash and drops close to the ear.
+      noise(r, { ...forever(at, 0.004, 5, into), filter: "bandpass", freq: 4000, q: 0.5, pink: true, pan: -0.5 });
+      repeat(r, into, at + 1.5, (when) => {
+        tap(r, when, rand(0.002, 0.006), rand(-1, -0.2), into, rand(2500, 5000));
+        return when + rand(0.05, 0.35);
+      });
+      const far = r.ctx.createBiquadFilter();
+      far.type = "lowpass";
+      far.frequency.value = 900;
+      far.connect(walls);
+      repeat(r, into, at + rand(15, 25), (when) => {
+        whistle(r, when, rand(1.1, 1.6), 0.015, far, 0);
+        return when + rand(40, 80);
+      });
+    },
+  },
+
+  // Index: the dream beyond the black hole. A soft Lydian pad drifting slowly
+  // from one voicing to the next, nebula air breathing as it wanders from ear to
+  // ear, and starlight chiming gently, far apart, deep in space.
+  blackhole: {
+    room: "space",
+    send: 0.55,
+    soft: 3000,
+    play: (r, at, into) => {
+      const voicings = [
+        [50, 57, 64, 66, 68, 73], // D Lydian: D A E F# G# C#
+        [47, 54, 61, 64, 68, 71], // Bm(add9) over the same colours
+        [43, 50, 57, 64, 66, 69], // G
+        [45, 52, 59, 64, 68, 73], // A
+      ];
+      let count = 0;
+      repeat(r, into, at, (when) => {
+        voicings[count % voicings.length].forEach((midi, index) => {
+          for (const detune of [-5, 5]) {
+            tone(r, { at: when + index * 0.08, length: 26, gain: 0.011, attack: 8, hold: 9, wave: "triangle", freq: note(midi), detune, lowpass: 1500, pan: detune / 12, into });
+          }
+        });
+        count += 1;
+        return when + 17;
+      });
+      const nebula = forever(at, 0.018, 5, into);
+      const breath = noise(r, { ...nebula, filter: "bandpass", freq: 700, q: 1.2, pink: true, to: drifting(r, at, into, 0.04, 0.7) });
+      wobble(r, breath.filter.frequency, 0.07, 380, nebula);
+      const stars = [81, 85, 88, 90, 92, 97];
+      repeat(r, into, at + 2, (when) => {
+        tone(r, { at: when, length: 1.8, gain: rand(0.006, 0.014), attack: 0.02, freq: note(pick(stars)), pan: rand(-0.85, 0.85), into });
+        return when + rand(1, 3);
+      });
+      repeat(r, into, at + rand(6, 10), (when) => {
+        brush(r, when, 2.5, 0.003, rand(-0.8, 0.8), into, 5500);
+        return when + rand(8, 16);
+      });
+    },
+  },
+};
+
+const DUCKED = 0.25; // the ambience's level while a shutter's score plays
+let ambience: { scene: FxName; hold: Hold; duck: GainNode } | null = null;
+let introUntil = 0; // the page's ambience waits for the opening to finish
+let scene: FxName | null = null; // the page's ambience
+let unlocked = false; // whether the visitor has tapped or typed yet
+
+/** Sets the ambience for the page on screen (null for none). It crossfades from
+ * the last page's, under the shutter. */
+export function setAmbience(next: FxName | null) {
+  scene = next;
+  syncAmbience();
+}
+/** Lets the ambience start: call from the visitor's first tap or key, since
+ * browsers allow sound only after one. */
+export function unlockAmbience() {
+  if (unlocked) return;
+  unlocked = true;
+  // Nothing plays in a tab the visitor isn't looking at.
+  document.addEventListener("visibilitychange", syncAmbience);
+  syncAmbience();
+}
+function syncAmbience() {
+  const want = unlocked && soundEnabled() && !document.hidden ? scene : null;
+  if (ambience?.scene === want) return;
+  fadeAmbience(2.5);
+  if (!want) return;
+  const r = getRig();
+  if (!r) return;
+  void r.ctx.resume();
+  const { room: name, send, soft, play } = ambients[want];
+  room(name);
+  const duck = r.ctx.createGain();
+  duck.gain.value = playing ? DUCKED : 1;
+  duck.connect(r.out);
+  const wet = r.ctx.createGain();
+  wet.gain.value = send;
+  duck.connect(wet).connect(r.rooms[name]);
+  const softly = r.ctx.createBiquadFilter();
+  softly.type = "lowpass";
+  softly.frequency.value = soft;
+  softly.Q.value = 0.5;
+  softly.connect(duck);
+  const into = hold(r, softly);
+  const at = Math.max(r.ctx.currentTime + 0.05, introUntil); // after the opening, if it's playing
+  into.bus.gain.setValueAtTime(0, at);
+  into.bus.gain.linearRampToValueAtTime(1, at + 3);
+  play(r, at, into);
+  ambience = { scene: want, hold: into, duck };
+}
+function fadeAmbience(fade: number) {
+  if (!ambience || !rig) return;
+  const level = ambience.hold.bus.gain; // it may still be fading in
+  level.cancelScheduledValues(rig.ctx.currentTime);
+  level.setValueAtTime(level.value, rig.ctx.currentTime);
+  release(rig, ambience.hold, rig.ctx.currentTime, fade);
+  ambience = null;
+}
+/** Whether the visitor has tapped or typed yet, so sound can play. */
+export const ambienceUnlocked = () => unlocked;
+function duckAmbience() {
+  if (!ambience || !rig) return;
+  ambience.duck.gain.setTargetAtTime(playing ? DUCKED : 1, rig.ctx.currentTime, playing ? 0.2 : 1.2);
+}
+
+// ── The opening: the home hero's curtain, scored ─────────────────────────────
+/** The sound of the home page's opening, timed to its CSS (fixes.css,
+ * hero-intro) from the moment it starts: a line of light sweeping across the
+ * dark, the curtain parting with a deep boom and light blooming through, a
+ * chime for each letter of the name, the sphere gathering out of scattered
+ * sparks while its rings are drawn, two shockwaves as it locks into shape and a
+ * glassy sheen over the name. The page's ambience follows. Call from the click
+ * that starts it (IntroGate); it also lets the ambience start. */
+export function playOpening() {
+  const r = soundEnabled() ? getRig() : null;
+  if (r) {
+    void r.ctx.resume();
+    room("space");
+    const t = r.ctx.currentTime + 0.03;
+    introUntil = t + 3;
+    fadeAmbience(0.05); // a first tap may have just started it; it comes in after
+    // The line: 0.1s to 0.73s, left to right, its flare dying on the far side.
+    const across = r.ctx.createStereoPanner();
+    across.pan.setValueAtTime(-0.9, t + 0.1);
+    across.pan.linearRampToValueAtTime(0.9, t + 0.73);
+    across.connect(r.out);
+    noise(r, { at: t + 0.1, length: 0.75, gain: 0.08, attack: 0.45, filter: "bandpass", freq: 1200, sweep: 5000, q: 1.5, to: across, reverb: 0.3, room: "space" });
+    tone(r, { at: t + 0.1, length: 0.72, gain: 0.025, attack: 0.4, wave: "triangle", freq: 700, glide: 2100, lowpass: 4000, to: across });
+    tone(r, { at: t + 0.73, length: 1.6, gain: 0.018, attack: 0.01, freq: note(93), pan: 0.8, reverb: 0.6, room: "space" });
+    tone(r, { at: t, length: 0.8, gain: 0.05, attack: 0.65, freq: 55 }); // the dark tightening
+    // The curtain parts (0.7s to 1.45s): a deep boom, air rushing through the
+    // gap and the light blooming as a wide D major chord.
+    tone(r, { at: t + 0.7, length: 1, gain: 0.26, attack: 0.004, freq: 90, glide: 38 });
+    noise(r, { at: t + 0.7, length: 0.5, gain: 0.1, attack: 0.003, filter: "lowpass", freq: 200 });
+    noise(r, { at: t + 0.66, length: 1.1, gain: 0.09, attack: 0.5, filter: "bandpass", freq: 250, sweep: 2600, q: 0.7, pink: true, reverb: 0.5, room: "space" });
+    tone(r, { at: t + 0.75, length: 4, gain: 0.045, attack: 0.3, freq: note(38) });
+    for (const midi of [62, 66, 69, 73, 76]) {
+      for (const detune of [-5, 5]) {
+        tone(r, { at: t + 0.75, length: 4.5, gain: 0.011, attack: 0.7, hold: 0.6, wave: "triangle", freq: note(midi), detune, lowpass: 2600, pan: detune / 10, reverb: 0.7, room: "space" });
+      }
+    }
+    // The name, letter by letter (0.95s, 0.09s apart), out of a split of colour.
+    [78, 81, 86].forEach((midi, index) => {
+      const at = t + 0.95 + index * 0.09;
+      tone(r, { at, length: 1.3, gain: 0.03, attack: 0.004, freq: note(midi), pan: (index - 1) * 0.3, reverb: 0.5, room: "space" });
+      noise(r, { at, length: 0.04, gain: 0.025, attack: 0.001, filter: "highpass", freq: 5000, pan: index % 2 ? 0.5 : -0.5 });
+    });
+    // The rings drawn round (1.2s and 1.35s), each a whisper circling the sphere.
+    for (const [at, length, from] of [[1.2, 1.1, -0.7], [1.35, 1.3, 0.7]]) {
+      const round = r.ctx.createStereoPanner();
+      round.pan.setValueAtTime(from, t + at);
+      round.pan.linearRampToValueAtTime(-from, t + at + length);
+      round.connect(r.out);
+      noise(r, { at: t + at, length, gain: 0.018, attack: length * 0.5, filter: "bandpass", freq: 1500, sweep: 4500, q: 8, to: round, reverb: 0.4, room: "space" });
+    }
+    // The sphere gathering (0.7s to 2.1s): sparks closing in from all round,
+    // faster and nearer the centre, over a rising rush.
+    for (let k = 0; k < 40; k += 1) {
+      const progress = k / 40;
+      tone(r, { at: t + 0.7 + 1.4 * progress ** 0.7, length: 0.12, gain: 0.004 + 0.008 * progress, attack: 0.002, freq: rand(2500, 7000), pan: rand(-1, 1) * (1 - progress), reverb: 0.3, room: "space" });
+    }
+    noise(r, { at: t + 1, length: 1.1, gain: 0.05, attack: 1, filter: "bandpass", freq: 400, sweep: 3000, q: 0.9, pink: true });
+    // Two shockwaves (2.05s, 2.22s), the formed sphere ringing out.
+    for (const [at, gain] of [[2.05, 0.18], [2.22, 0.11]]) {
+      tone(r, { at: t + at, length: 1.2, gain, attack: 0.004, freq: 70, glide: 40 });
+      noise(r, { at: t + at, length: 1.2, gain: gain * 0.35, attack: 0.01, filter: "bandpass", freq: 900, sweep: 220, q: 0.8, pink: true, reverb: 0.6, room: "space" });
+    }
+    for (const midi of [81, 85, 88, 93]) {
+      tone(r, { at: t + 2.06, length: 3, gain: 0.014, attack: 0.02, freq: note(midi), detune: rand(-4, 4), pan: rand(-0.5, 0.5), reverb: 0.8, room: "space" });
+    }
+    // The sheen across the name (2.2s to 3.4s).
+    const sheen = r.ctx.createStereoPanner();
+    sheen.pan.setValueAtTime(-0.6, t + 2.2);
+    sheen.pan.linearRampToValueAtTime(0.6, t + 3.4);
+    sheen.connect(r.out);
+    noise(r, { at: t + 2.2, length: 1.2, gain: 0.02, attack: 0.5, filter: "bandpass", freq: 3000, sweep: 8000, q: 10, to: sheen, reverb: 0.5, room: "space" });
+    tone(r, { at: t + 2.3, length: 1.4, gain: 0.008, attack: 0.3, freq: note(98), to: sheen });
+  }
+  unlockAmbience();
+  syncAmbience();
 }

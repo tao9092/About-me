@@ -101,8 +101,8 @@ export function PublicNav() {
           <div className="nav-actions">
             <button
               onClick={() => setSoundEnabled(!sound)}
-              aria-label={sound ? "Mute transition sounds" : "Turn on transition sounds"}
-              title={sound ? "Mute transition sounds" : "Turn on transition sounds"}
+              aria-label={sound ? "Mute sound" : "Turn on sound"}
+              title={sound ? "Mute sound" : "Turn on sound"}
             >
               {sound ? <Volume2 /> : <VolumeX />}
             </button>

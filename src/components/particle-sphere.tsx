@@ -26,7 +26,7 @@ const palette = [
 
 // Opening for `assemble`: particles start scattered and are pulled into the
 // sphere as the hero curtain opens. The curtain is a CSS animation that starts
-// with the first paint, so the gathering is timed from that animation's start
+// when the visitor enters, so the gathering is timed from that animation's start
 // rather than from hydration.
 const GATHER_DELAY = 700;
 const GATHER_DURATION = 1400;
@@ -65,13 +65,11 @@ export function ParticleSphere({
     const pointer = { x: -9999, y: -9999, active: false, power: 0 };
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
     let gathering = assemble && !reduce;
-    const introStart = container
-      .closest(".hero-intro")
-      ?.querySelector(".hero-intro-curtain")
-      ?.getAnimations({ subtree: true })
-      .reduce((earliest, animation) => Math.min(earliest, Number(animation.startTime ?? Infinity)), Infinity);
-    const gatherStart =
-      (introStart !== undefined && Number.isFinite(introStart) ? introStart : performance.now()) + GATHER_DELAY;
+    const curtain = () =>
+      container.closest(".hero-intro")?.querySelector(".hero-intro-curtain")?.getAnimations({ subtree: true }) ?? [];
+    // Without a curtain the gathering is timed from now. With one it waits until
+    // the curtain plays: it holds, paused, behind the intro gate (IntroGate).
+    let gatherStart = curtain().length ? NaN : performance.now() + GATHER_DELAY;
     const counts = { high: 1800, medium: 720, low: 360 };
     // Each frame the dots are grouped by colour and opacity, and every group is
     // filled in one call instead of one call per dot. The canvas stores colours
@@ -178,6 +176,11 @@ export function ParticleSphere({
     // then the formed sphere flashes its palette (with the CSS shockwave).
     function pull(now: number) {
       if (!gathering) return 0.017;
+      if (Number.isNaN(gatherStart)) {
+        const started = curtain().reduce((earliest, animation) => Math.min(earliest, Number(animation.startTime ?? Infinity)), Infinity);
+        if (!Number.isFinite(started)) return 0;
+        gatherStart = started + GATHER_DELAY;
+      }
       if (now < gatherStart) return 0;
       const t = Math.min(1, (now - gatherStart) / GATHER_DURATION);
       if (t >= 1) {

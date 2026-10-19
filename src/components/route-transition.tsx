@@ -12,7 +12,7 @@ import {
 } from "react";
 import type { FxName } from "@/components/route-fx";
 import { runShutter, type ShutterControl, type ShutterSize } from "@/components/route-fx-runner";
-import { playShutterSound, primeSound, type Score } from "@/components/route-sfx";
+import { playShutterSound, primeSound, setAmbience, unlockAmbience, type Score } from "@/components/route-sfx";
 import type { ShutterMessage } from "@/components/route-fx-worker";
 import { ScrambleText } from "@/components/scramble-text";
 
@@ -38,6 +38,17 @@ const VARIANTS: Record<ShutterVariant, { kicker: string; cover: number; reveal: 
 };
 /** The name of the scene a variant plays, as its title card shows it. */
 export const shutterKicker = (variant: ShutterVariant) => VARIANTS[variant].kicker;
+/** The scene whose ambience plays under a page: its section's shutter, the home
+ * record for the rest. */
+const AMBIENCE: [prefix: string, scene: ShutterVariant][] = [
+  ["/projects", "code"],
+  ["/competitions", "scope"],
+  ["/upcoming-competitions", "scope"],
+  ["/certificates", "saturn"],
+  ["/experience", "train"],
+  ["/explore", "blackhole"],
+];
+const ambienceFor = (path: string) => AMBIENCE.find(([prefix]) => path === prefix || path.startsWith(`${prefix}/`))?.[1] ?? "vinyl";
 const MIN_HOLD_MS = 240; // keep the destination readable at least this long
 const GIVE_UP_MS = 8000; // reveal anyway if the route never commits
 
@@ -201,6 +212,25 @@ export function RouteTransitionProvider({ children }: { children: ReactNode }) {
     return () => {
       pending.forEach((id) => window.clearTimeout(id));
       score.current?.end();
+    };
+  }, []);
+
+  // Each page's ambience, crossfading as the route changes (under the shutter).
+  useEffect(() => {
+    setAmbience(ambienceFor(pathname));
+  }, [pathname]);
+  // It starts with the visitor's first tap or key, and stops when they leave the
+  // public pages.
+  useEffect(() => {
+    const gestures = ["pointerup", "keydown"] as const;
+    const unlock = () => {
+      unlockAmbience();
+      for (const type of gestures) window.removeEventListener(type, unlock, { capture: true });
+    };
+    for (const type of gestures) window.addEventListener(type, unlock, { capture: true, passive: true });
+    return () => {
+      for (const type of gestures) window.removeEventListener(type, unlock, { capture: true });
+      setAmbience(null);
     };
   }, []);
 

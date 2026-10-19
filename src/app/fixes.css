@@ -1894,6 +1894,50 @@ html:not(.dark) .capability-field-empty span {
   from { background-position:100% 0; }
   to { background-position:0 0; }
 }
+/* The intro gate (IntroGate): the opening holds, paused on its first frame, behind
+   the closed curtain until the visitor enters, so its sound can start with it. */
+.intro-gate { display:none; }
+@media (prefers-reduced-motion: no-preference) {
+  .hero-intro:has(> .intro-gate[data-waiting]) *,
+  .hero-intro:has(> .intro-gate[data-waiting]) *::before,
+  .hero-intro:has(> .intro-gate[data-waiting]) *::after { animation-play-state:paused!important; }
+  .hero-intro:has(> .intro-gate[data-waiting]) .intro-gate * { animation-play-state:running!important; }
+  .intro-gate {
+    position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
+    background:#010e0d;color:var(--silver);
+    opacity:0;visibility:hidden;pointer-events:none;
+    transition:opacity .3s ease,visibility 0s linear .3s;
+  }
+  .intro-gate[data-waiting] { opacity:1;visibility:visible;pointer-events:auto;transition:none; }
+  .intro-gate p { margin:0;font-size:11px;text-transform:uppercase;letter-spacing:.15em;font-weight:550;animation:intro-fade 1.2s ease .2s both; }
+  /* The button sits on the line of light that will cut across the dark. */
+  .intro-gate-enter {
+    position:relative;display:grid;place-items:center;width:min(360px,80vw);height:64px;
+    color:var(--mist);font-size:13px;text-transform:uppercase;letter-spacing:.32em;font-weight:600;
+    animation:intro-fade 1.2s ease .35s both;
+  }
+  .intro-gate-enter::before {
+    content:"";position:absolute;left:0;right:0;top:50%;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(160,255,244,.7),transparent);
+    box-shadow:0 0 14px rgba(160,255,244,.45);
+    animation:intro-gate-breathe 2.6s ease-in-out infinite;
+  }
+  .intro-gate-enter span {
+    position:relative;padding:12px 26px;padding-right:calc(26px - .32em);
+    background:#010e0d;border:1px solid rgba(160,255,244,.35);border-radius:999px;
+    transition:border-color .25s ease,box-shadow .25s ease,color .25s ease;
+  }
+  .intro-gate-enter:hover span,
+  .intro-gate-enter:focus-visible span { border-color:rgba(160,255,244,.9);box-shadow:0 0 24px rgba(160,255,244,.35);color:#fff; }
+  .intro-gate-enter:focus-visible { outline:none; }
+  .intro-gate-quiet {
+    color:var(--silver);font-size:10px;text-transform:uppercase;letter-spacing:.13em;opacity:.7;
+    border-bottom:1px solid transparent;animation:intro-fade 1.2s ease .5s both;
+  }
+  .intro-gate-quiet:hover,
+  .intro-gate-quiet:focus-visible { opacity:1;border-bottom-color:currentColor; }
+}
+@keyframes intro-gate-breathe { 50% { opacity:.35; } }
 
 /* Six nav links: tighten the spacing until the links fold into the menu at 900px. */
 .auros-nav .nav-cta { white-space:nowrap; }
