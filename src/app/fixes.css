@@ -713,6 +713,14 @@ html:not(.dark) .rich-content a {
 .detail-links { display:grid; margin-top:50px; border-top:1px solid var(--liquid-line); }
 .detail-links a { min-height:64px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--liquid-line); color:#fff; }
 .detail-links svg { width:17px; }
+/* A private project's page: its title, then a lock where the write-up would be. */
+.detail-locked { display:grid; justify-items:center; gap:14px; padding:110px 16px; border-top:1px solid var(--liquid-line); text-align:center; }
+.detail-locked>svg { width:30px; height:30px; color:var(--silver); }
+.detail-locked h2 { margin:0; color:#fff; font-size:clamp(1.8rem,3.4vw,2.8rem); line-height:1.05; letter-spacing:-.03em; font-weight:500; }
+.detail-locked p { margin:0; color:var(--silver); font-size:17px; }
+.detail-locked .text-link { margin-top:18px; display:inline-flex; align-items:center; gap:8px; }
+.detail-locked .text-link svg { width:16px; }
+html:not(.dark) .detail-locked h2 { color:#172b35; }
 @media(max-width:750px){
   .public-detail { padding-top:40px; }
   .detail-hero { min-height:430px; grid-template-columns:1fr; padding-top:55px; }

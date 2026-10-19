@@ -17,6 +17,10 @@ const demos: Record<string, Array<Record<string, unknown>>> = {
   education: [], experiences: [], awards: [], links: [],
 };
 
+// PostgREST's code for a relation it doesn't know: project_teasers before its
+// migration (202610200001) is applied, when there are simply no teasers.
+const MISSING = "PGRST205";
+
 export async function listContent(table: EntityTable, options: { admin?: boolean; archived?: boolean; q?: string; limit?: number } = {}) {
   if (!isSupabaseConfigured()) {
     const rows = demos[table] ?? [];
@@ -30,7 +34,16 @@ export async function listContent(table: EntityTable, options: { admin?: boolean
   if (options.q) query = query.or(`title_en.ilike.%${options.q.replace(/[%_,()]/g, "")}%,title_zh.ilike.%${options.q.replace(/[%_,()]/g, "")}%`);
   const { data, error } = await query;
   if (error) throw error;
-  return data as Array<Record<string, unknown>>;
+  const rows = data as Array<Record<string, unknown>>;
+  if (table !== "projects" || options.admin) return rows;
+  // Private projects are listed by their teaser too (project_teasers).
+  let teasers = supabase.from("project_teasers").select("*").limit(options.limit ?? 50);
+  if (options.q) teasers = teasers.or(`title_en.ilike.%${options.q.replace(/[%_,()]/g, "")}%,title_zh.ilike.%${options.q.replace(/[%_,()]/g, "")}%`);
+  const { data: locked, error: lockedError } = await teasers;
+  if (lockedError && lockedError.code !== MISSING) throw lockedError;
+  return [...rows, ...((locked ?? []) as Array<Record<string, unknown>>)]
+    .sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || String(b.updated_at).localeCompare(String(a.updated_at)))
+    .slice(0, options.limit ?? 50);
 }
 
 export async function siteProfile() {
@@ -52,6 +65,12 @@ export async function getPublicContent(table:EntityTable,slug:string){
   const supabase=await createClient();
   const{data,error}=await supabase.from(table).select("*").eq("slug",slug).eq("status","published").eq("visibility","public").maybeSingle();
   if(error)throw new Error(error.message);
+  if (!data && table === "projects") {
+    // A private project: only its teaser, which the page shows as locked.
+    const { data: teaser, error: teaserError } = await supabase.from("project_teasers").select("*").eq("slug", slug).maybeSingle();
+    if (teaserError && teaserError.code !== MISSING) throw new Error(teaserError.message);
+    return teaser as Record<string, unknown> | null;
+  }
   if (!data) return null;
   const row = data as Record<string, unknown>;
   if (table === "certificates" && typeof row.image_file_id === "string") {
