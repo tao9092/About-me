@@ -4,7 +4,6 @@ import {
   ArrowUpRight,
   CalendarDays,
   ExternalLink,
-  LockKeyhole,
   MapPin,
 } from "lucide-react";
 import { notFound } from "next/navigation";
@@ -30,8 +29,6 @@ export async function PublicDetail({
   const row = await getPublicContent(table as EntityTable, slug);
   if (!row) notFound();
   const meta = copy[table];
-  // A private project shows only that it exists; its write-up isn't public.
-  const locked = row.visibility === "protected";
   const date = String(
     row.competition_date ?? row.project_date ?? row.issued_at ?? "",
   );
@@ -59,27 +56,16 @@ export async function PublicDetail({
         <div>
           <div className="detail-badges">
             <Badge>{meta.label}</Badge>
-            {locked && <Badge tone="warning"><LockKeyhole size={13} /> Private</Badge>}
             {Boolean(row.is_demo) && <Badge tone="warning">Demo data</Badge>}
           </div>
           <h1 style={{ "--title-vw": titleVw.toFixed(2) } as CSSProperties}>{title}</h1>
-          {!locked && <p>{String(row.summary_en ?? "")}</p>}
+          <p>{String(row.summary_en ?? "")}</p>
         </div>
         <div className="detail-index">
-          <span>{locked ? "Private record" : "Published record"}</span>
+          <span>Published record</span>
           <strong>{String(row.sort_order ?? 0).padStart(2, "0")}</strong>
         </div>
       </header>
-      {locked ? (
-        <section className="detail-locked">
-          <LockKeyhole />
-          <h2>This project is private</h2>
-          <p>Its details aren&apos;t shared publicly.</p>
-          <Link className="text-link" href={meta.back}>
-            <ArrowLeft /> Back to {meta.label.toLowerCase()}s
-          </Link>
-        </section>
-      ) : <>
       <section className="detail-facts">
         {date && (
           <div>
@@ -143,7 +129,6 @@ export async function PublicDetail({
           )}
         </div>
       </section>}
-      </>}
     </article>
   );
 }

@@ -1,1 +1,1 @@
-import{CollectionPage}from"@/components/collection-page";export default function Page({searchParams}:{searchParams:Promise<{q?:string}>}){return <CollectionPage table="projects" searchParams={searchParams}/>}
+import{ProjectsLab}from"@/components/projects-lab";export default function Page({searchParams}:{searchParams:Promise<{q?:string}>}){return <ProjectsLab searchParams={searchParams}/>}
