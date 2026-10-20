@@ -5,7 +5,7 @@ import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { entityTables, type EntityTable } from "@/lib/content";
 import { withoutMissingColumns } from "@/lib/entity-columns";
-import { baseContentSchema } from "@/lib/validation";
+import { baseContentSchema, storedLink } from "@/lib/validation";
 import { sanitizeRichText } from "@/lib/sanitize";
 import { uploadValidatedFile } from "@/lib/files";
 import { z } from "zod";
@@ -22,7 +22,7 @@ function table(value: string): EntityTable {
 }
 
 const optionalText=z.string().trim().transform(value=>value||null);
-const optionalUrl=z.string().trim().transform(value=>value||null);
+const optionalUrl=storedLink;
 const detailSchemas:Record<EntityTable,z.ZodType<Record<string,unknown>>>={
   competitions:z.object({competition_date:z.iso.date(),organizer:optionalText,competition_type:optionalText,team_name:optionalText,placement:optionalText,award:optionalText,github_url:optionalUrl,demo_url:optionalUrl,official_url:optionalUrl}),
   upcoming_competitions:z.object({competition_date:z.union([z.iso.date(),z.literal("")]).transform(v=>v||null),official_url:optionalUrl,registration_status:z.enum(["interested","planning","registered","completed","cancelled"]).catch("interested"),competition_type:optionalText}),
@@ -53,7 +53,10 @@ export async function saveContentAction(
       fields: parsed.error.flatten().fieldErrors,
     };
   const details=detailSchemas[entity].safeParse(raw);
-  if(!details.success)return{error:"Please complete the required details for this content type."};
+  if(!details.success){
+    const badLink=details.error.issues.some(issue=>/url$/.test(String(issue.path[0])));
+    return{error:badLink?"Links must be full web addresses starting with http:// or https://.":"Please complete the required details for this content type."};
+  }
   const supabase = await createClient();
   let uploadedImage: { path: string; bucket: string } | null = null;
   let imageFileId: string | null = null;

@@ -19,10 +19,12 @@ export async function loginAction(_: unknown, formData: FormData) {
   const ip = (await headers()).get("x-forwarded-for") ?? "local";
   if (!checkRateLimit(`login:${ip}`, 5).allowed)
     return { error: "Too many attempts. Try again later." };
+  // The same answer as a wrong password, so the form can't be used to find out
+  // which address is the owner's.
   if (
     parsed.data.email.toLowerCase() !== process.env.ADMIN_EMAIL?.toLowerCase()
   )
-    return { error: "This account is not the site owner." };
+    return { error: "Sign in failed. Check your credentials." };
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) return { error: "Sign in failed. Check your credentials." };

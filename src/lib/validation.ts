@@ -4,6 +4,9 @@ export const visibilitySchema = z.enum(["public", "protected", "private"]);
 export const statusSchema = z.enum(["draft", "published", "archived"]);
 
 const optionalUrl = z.union([z.literal(""), z.url({ protocol: /^https?$/ })]).optional();
+// Links are rendered as hrefs on the public pages, so only http(s) is stored:
+// a javascript: or data: URL would run in a visitor's browser. Empty is null.
+export const storedLink = z.string().trim().pipe(z.union([z.literal(""), z.url({ protocol: /^https?$/ })])).transform((value) => value || null);
 export const baseContentSchema = z.object({
   id: z.uuid().optional(),
   title_en: z.string().trim().min(2).max(180),
