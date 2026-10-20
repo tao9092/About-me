@@ -14,7 +14,9 @@ body:has(.hz) .auros-nav { background:color-mix(in srgb,var(--hz-bg) 84%,transpa
 body:has(.hz) .site-footer { background:transparent!important; border-color:var(--hz-line)!important; color:var(--hz-muted)!important; }
 
 .hz { padding-top:56px; color:var(--hz-ink); }
-.hz-hero { display:grid; justify-items:center; text-align:center; overflow-x:clip; }
+/* One column the width of the page: an auto column would grow to the widest
+   line and push the whole hero off centre, its overflow clipped. */
+.hz-hero { display:grid; grid-template-columns:minmax(0,1fr); justify-items:center; text-align:center; overflow-x:clip; }
 .hz-meta { justify-self:stretch; display:flex; justify-content:space-between; gap:16px; padding-bottom:14px; border-bottom:1px solid var(--hz-line); color:var(--hz-muted); font:500 11px var(--hz-mono); text-transform:uppercase; letter-spacing:.16em; }
 .hz-meta span:first-child { color:var(--hz-violet); }
 
@@ -80,7 +82,9 @@ body:has(.hz) .site-footer { background:transparent!important; border-color:var(
   .hz-meta { flex-direction:column; gap:6px; }
   .hz-hole { width:92vw; }
   .hz-search span { display:none; }
-  .hz-hero h1 { font-size:21vw; letter-spacing:.02em; }
+  /* "INDEX" runs about 5.4 times its size in Syne: sized from the room left
+     between the 16px gutters so it fits from a 320px phone up. */
+  .hz-hero h1 { font-size:calc((100vw - 32px) / 5.6); letter-spacing:.02em; }
 }
 @media (prefers-reduced-motion:reduce) {
   .hz-hole,.hz-hero h1,.hz-hero p,.hz-glow,.hz-section li,.hz-disk-back::before,.hz-disk-front::before { animation:none!important; }
