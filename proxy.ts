@@ -20,4 +20,5 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
-export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"] };
+// Skips static assets, and the CSP report endpoint, which needs no session.
+export const config = { matcher: ["/((?!_next/static|_next/image|api/csp-report|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"] };
