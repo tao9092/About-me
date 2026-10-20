@@ -28,7 +28,8 @@ const csp = [
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
-  ...(isDev ? [] : ["upgrade-insecure-requests"]),
+  // upgrade-insecure-requests only works in an enforced policy (a report-only
+  // one logs a warning on every page instead): add it back when enforcing.
   // report-uri alone: with report-to present Chrome drops it for the Reporting
   // API, which batches reports and did not deliver them in testing.
   "report-uri /api/csp-report",
