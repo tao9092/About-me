@@ -1600,6 +1600,16 @@ export function ShootingRangeScene({
         { rootMargin: "120px" },
       );
       visibilityObserver.observe(canvas);
+      // Scrolling the range mostly out of view releases the mouse, which pauses
+      // it as Esc would: while locked, every click goes to the range, so the
+      // page around it (the nav, links) could not be clicked.
+      const lockObserver = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.intersectionRatio < 0.5 && isLocked()) document.exitPointerLock();
+        },
+        { threshold: 0.5 },
+      );
+      lockObserver.observe(canvas);
 
       // Resolves once every material's program has finished compiling, checking
       // without blocking; gives up quietly if the range is torn down meanwhile.
@@ -1623,6 +1633,7 @@ export function ShootingRangeScene({
           syncRef.current = null;
           timeouts.forEach((timeout) => window.clearTimeout(timeout));
           visibilityObserver.disconnect();
+          lockObserver.disconnect();
           resizeObserver.disconnect();
           canvas.removeEventListener("pointerdown", handlePointerDown);
           canvas.removeEventListener("pointermove", handlePointerMove);
