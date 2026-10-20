@@ -18,11 +18,13 @@ export const turn3 = (a: Vec3, angle: number): Vec3 => {
 };
 
 export type Camera = { eye: Vec3; right: Vec3; up: Vec3; forward: Vec3; focal: number; cx: number; cy: number; near: number };
-/** A camera at eye looking at target; fov is vertical, in radians. */
+/** A camera at eye looking at target; fov spans the shorter side of the screen, in
+ * radians: vertical on a landscape screen, across on a portrait one, so a phone
+ * held upright sees as wide a shot as a desktop rather than a narrow slice of it. */
 export function aim(eye: Vec3, target: Vec3, upHint: Vec3, fov: number, w: number, h: number, near = 0.03): Camera {
   const forward = unit3(sub3(target, eye));
   const right = unit3(cross3(forward, upHint));
-  return { eye, right, up: cross3(right, forward), forward, focal: h / 2 / Math.tan(fov / 2), cx: w / 2, cy: h / 2, near };
+  return { eye, right, up: cross3(right, forward), forward, focal: Math.min(w, h) / 2 / Math.tan(fov / 2), cx: w / 2, cy: h / 2, near };
 }
 /** Camera space: x right, y up, z depth. */
 export function toView(cam: Camera, point: Vec3): Vec3 {

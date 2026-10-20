@@ -339,7 +339,7 @@ export function rail(): Fx {
     const rumble = (phase === "cover" ? 0.04 * Math.sin(Math.PI * pan) : 0.012) * (phase === "reveal" ? 1 - p : 1);
     const eye: Vec3 = [lerp(4.2, 5.4, pan) + rand(-rumble, rumble), lerp(1.5, 1.75, pan) + rand(-rumble, rumble), lerp(2, 0, pan)];
     const target = add3(eye, mix3([-0.42, -0.03, -1], [-1, -0.04, 0], pan));
-    const cam = aim(eye, target, [0, 1, 0], lerp(lerp(0.85, 0.95, pan), 1.2, tall), w, h, 0.05);
+    const cam = aim(eye, target, [0, 1, 0], lerp(lerp(0.85, 0.95, pan), 1.0, tall), w, h, 0.05);
 
     const s = stage(ctx, w);
     if (!s) return;

@@ -4,6 +4,31 @@ import { useEffect, useRef, useState } from "react";
 
 const glyphs = "01<>/{}[]#*+?=:_";
 
+// Every scramble on a page waits on one shared observer rather than one each: the
+// home page alone has over a hundred, and the browser checks every observer on
+// every frame. Each text is dropped from it as soon as it first comes into view.
+const waiting = new Map<Element, () => void>();
+let sharedObserver: IntersectionObserver | null = null;
+function whenSeen(node: Element, callback: () => void) {
+  sharedObserver ??= new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const seen = waiting.get(entry.target);
+        stopWaiting(entry.target);
+        seen?.();
+      }
+    },
+    { threshold: 0.25 },
+  );
+  waiting.set(node, callback);
+  sharedObserver.observe(node);
+}
+function stopWaiting(node: Element) {
+  if (!waiting.delete(node)) return;
+  sharedObserver?.unobserve(node);
+}
+
 export function ScrambleText({
   text,
   delay = 0,
@@ -60,24 +85,18 @@ export function ScrambleText({
       }
     };
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) return;
-        observer.disconnect();
-        if (reducedMotion) {
-          setDisplay(text);
-          return;
-        }
-        timeout = window.setTimeout(() => {
-          frame = requestAnimationFrame(reveal);
-        }, delay);
-      },
-      { threshold: 0.25 },
-    );
+    whenSeen(node, () => {
+      if (reducedMotion) {
+        setDisplay(text);
+        return;
+      }
+      timeout = window.setTimeout(() => {
+        frame = requestAnimationFrame(reveal);
+      }, delay);
+    });
 
-    observer.observe(node);
     return () => {
-      observer.disconnect();
+      stopWaiting(node);
       cancelAnimationFrame(frame);
       clearTimeout(timeout);
     };

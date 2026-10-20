@@ -1909,6 +1909,9 @@ html:not(.dark) .capability-field-empty span {
     transition:opacity .3s ease,visibility 0s linear .3s;
   }
   .intro-gate[data-waiting] { opacity:1;visibility:visible;pointer-events:auto;transition:none; }
+  /* Once entered the gate is hidden, so its breathing line holds still. */
+  .intro-gate:not([data-waiting]) *,
+  .intro-gate:not([data-waiting]) *::before { animation-play-state:paused; }
   .intro-gate p { margin:0;font-size:11px;text-transform:uppercase;letter-spacing:.15em;font-weight:550;animation:intro-fade 1.2s ease .2s both; }
   /* The button sits on the line of light that will cut across the dark. */
   .intro-gate-enter {
@@ -2191,3 +2194,7 @@ html:not(.dark) .capability-field-empty span {
   .detail-links { margin-top:32px; }
   .certificate-lightbox { padding:64px 12px 12px; }
 }
+/* The hero's status line starts under the (92% opaque) bar and only slides
+   further beneath it as the page scrolls, so its pulse is never seen. Left
+   running, the browser repaints the page for it on every frame. */
+.hero-status i { animation-play-state:paused; }

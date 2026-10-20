@@ -195,6 +195,7 @@ export function ParticleSphere({
       const cx = w / 2,
         cy = h / 2,
         unit = Math.min(w, h),
+        orbit = unit * 0.4,
         rot = still ? 0 : time * 0.00015,
         c = Math.cos(rot),
         s = Math.sin(rot),
@@ -203,9 +204,11 @@ export function ParticleSphere({
       glowCounts.fill(0);
       for (let index = 0; index < points.length; index += 1) {
         const p = points[index];
-        const tx = cx + p.hx * c - p.z * unit * 0.16 * s,
+        // Turning about the vertical axis keeps the sphere round: depth swings
+        // into x by the same radius (orbit) the x offset has.
+        const tx = cx + p.hx * c - p.z * orbit * s,
           ty = cy + p.hy,
-          rz = (p.hx / unit) * s + p.z * c;
+          rz = (p.hx / orbit) * s + p.z * c;
         if (!still) {
           const dx = p.x - pointer.x,
             dy = p.y - pointer.y,
