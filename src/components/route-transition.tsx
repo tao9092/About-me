@@ -31,7 +31,7 @@ export type RouteTarget = {
 const VARIANTS: Record<ShutterVariant, { kicker: string; cover: number; reveal: number }> = {
   code: { kicker: "Compile", cover: 700, reveal: 1100 },
   scope: { kicker: "Target lock", cover: 650, reveal: 1500 },
-  saturn: { kicker: "Saturn", cover: 800, reveal: 1200 },
+  saturn: { kicker: "Re-entry", cover: 800, reveal: 1300 },
   train: { kicker: "Express", cover: 750, reveal: 950 },
   blackhole: { kicker: "Event horizon", cover: 700, reveal: 1100 },
   vinyl: { kicker: "Now playing", cover: 760, reveal: 1100 },

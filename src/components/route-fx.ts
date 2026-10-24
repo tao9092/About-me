@@ -6,14 +6,13 @@
 // shared film look.
 import { releaseStage } from "@/components/route-fx-3d";
 import { blackhole } from "@/components/route-fx-blackhole";
-import { cassini, prepareCassini } from "@/components/route-fx-cassini";
 import { circuit } from "@/components/route-fx-circuit";
 import { gargantua, prepareGargantua } from "@/components/route-fx-gargantua";
 import { releaseShaders } from "@/components/route-fx-gl";
 import { type Fx, makeCanvas, releaseFilmLook, setViewport } from "@/components/route-fx-kit";
 import { rail } from "@/components/route-fx-rail";
 import { range, releaseRange } from "@/components/route-fx-range";
-import { saturn } from "@/components/route-fx-saturn";
+import { prepareReentry, reentry } from "@/components/route-fx-reentry";
 import { vinyl } from "@/components/route-fx-vinyl";
 
 export type FxName = "code" | "scope" | "saturn" | "train" | "blackhole" | "vinyl";
@@ -21,14 +20,14 @@ export type FxName = "code" | "scope" | "saturn" | "train" | "blackhole" | "viny
 export const createFx: Record<FxName, () => Fx> = {
   code: circuit, // Projects: a circuit board powers up; the camera dives into the die
   scope: range, // Competitions: down the scope, bullet time, the lens shatters
-  saturn: () => cassini(saturn), // Certificates: a ray-traced Saturn eclipses the sun (flat without WebGL)
+  saturn: reentry, // Certificates: burning re-entry over a ray-traced Earth; a porthole opens on the page
   train: rail, // Experience: the night express, a year in every window
   blackhole: () => gargantua(blackhole), // Index: a ray-traced black hole (flat without WebGL)
   vinyl, // Home: a record plays; the camera dives through the spindle hole
 };
 
 /** Frees the frame-sized buffers once a shutter has finished; sprites that the
- * next shutter can reuse (Saturn's globe and rings, the die, the label) stay. */
+ * next shutter can reuse (the die, the label) stay. */
 export function releaseFx() {
   releaseFilmLook();
   releaseStage();
@@ -43,7 +42,7 @@ export function releaseFx() {
  * worker. */
 export async function warmFx(size: { w: number; h: number; dpr: number }, turn: () => Promise<void>) {
   await turn();
-  await Promise.all([prepareCassini(), prepareGargantua()]);
+  await Promise.all([prepareReentry(), prepareGargantua()]);
   const ctx = makeCanvas(Math.round(size.w * size.dpr), Math.round(size.h * size.dpr)).getContext("2d");
   if (!ctx) return;
   for (const create of Object.values(createFx)) {
