@@ -1,5 +1,5 @@
 // Full-screen fragment shaders on their own WebGL canvases, drawn into a shutter
-// with drawImage: the ray-traced scenes (route-fx-gargantua.ts, route-fx-cassini.ts).
+// with drawImage: the ray-traced scenes (route-fx-gargantua.ts, route-fx-reentry.ts).
 // Each shader is compiled once and kept, so later shutters start at once.
 import { makeCanvas } from "@/components/route-fx-kit";
 
