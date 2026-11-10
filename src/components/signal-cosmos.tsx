@@ -32,6 +32,87 @@ function seededValue(index: number, salt: number) {
   return value - Math.floor(value);
 }
 
+const WARMED_KEY = "signal-section-warmed";
+
+/** The browser does not rasterise this section's composited layers (the
+ * carousel cards, their glow, the floor) while they are off screen, so the GPU
+ * compiles their shaders the first time they scroll in: on a phone that stalls
+ * the scroll for a moment. While the page is idle, an inert copy of the section
+ * is shown for a few frames at 0.1% opacity (below one 8-bit colour step, so
+ * nothing visible changes), which has the GPU compile and cache those shaders
+ * before the visitor gets there. Once per tab session: the GPU keeps them. */
+function warmSectionShaders(section: HTMLElement) {
+  try {
+    if (sessionStorage.getItem(WARMED_KEY)) return () => undefined;
+  } catch {}
+  let cancelled = false;
+  let clone: HTMLElement | null = null;
+  let idle = 0;
+  const frames = (count: number) =>
+    new Promise<void>((resolve) => {
+      const step = () => {
+        if (cancelled || count-- <= 0) resolve();
+        else requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+
+  const run = async () => {
+    const bounds = section.getBoundingClientRect();
+    // Already on screen: its layers are being rasterised anyway.
+    if (bounds.top < window.innerHeight && bounds.bottom > 0) return;
+    if (!section.parentElement) return;
+    clone = section.cloneNode(true) as HTMLElement;
+    clone.removeAttribute("id");
+    clone.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
+    clone.setAttribute("aria-hidden", "true");
+    clone.inert = true;
+    Object.assign(clone.style, {
+      position: "fixed",
+      left: "0px",
+      top: "0px",
+      width: `${bounds.width}px`,
+      height: `${bounds.height}px`,
+      margin: "0",
+      opacity: "0.001",
+      pointerEvents: "none",
+      zIndex: "2147483647",
+    });
+    // Next to the section, so every selector that styles it still applies.
+    section.parentElement.append(clone);
+    await frames(6);
+    // A section taller than the screen: show its lower part too.
+    if (!cancelled && bounds.height > window.innerHeight) {
+      clone.style.top = `${window.innerHeight - bounds.height}px`;
+      await frames(6);
+    }
+    clone.remove();
+    clone = null;
+    if (cancelled) return;
+    try {
+      sessionStorage.setItem(WARMED_KEY, "1");
+    } catch {}
+  };
+
+  // Safari has no requestIdleCallback.
+  const hasIdle = typeof window.requestIdleCallback === "function";
+  const schedule = () => {
+    idle = hasIdle
+      ? window.requestIdleCallback(() => void run(), { timeout: 2500 })
+      : window.setTimeout(() => void run(), 600);
+  };
+  if (document.readyState === "complete") schedule();
+  else window.addEventListener("load", schedule, { once: true });
+
+  return () => {
+    cancelled = true;
+    window.removeEventListener("load", schedule);
+    if (hasIdle) window.cancelIdleCallback(idle);
+    else window.clearTimeout(idle);
+    clone?.remove();
+  };
+}
+
 export function SignalCosmos() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -439,8 +520,10 @@ export function SignalCosmos() {
     pointer.x = pointer.targetX = width / 2;
     pointer.y = pointer.targetY = height / 2;
     frame = requestAnimationFrame(draw);
+    const stopWarming = warmSectionShaders(section);
 
     return () => {
+      stopWarming();
       onScreen = false;
       visibility.disconnect();
       observer.disconnect();
