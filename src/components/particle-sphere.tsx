@@ -86,13 +86,27 @@ export function ParticleSphere({
       gatherAt: waitForCurtain ? NaN : epoch() + GATHER_DELAY,
     });
     let watching = 0;
+    let gateWatch: MutationObserver | null = null;
     if (waitForCurtain) {
       const watch = () => {
         const started = curtain().reduce((earliest, animation) => Math.min(earliest, Number(animation.startTime ?? Infinity)), Infinity);
         if (Number.isFinite(started)) sphere.setGatherStart(performance.timeOrigin + started + GATHER_DELAY);
         else watching = requestAnimationFrame(watch);
       };
-      watching = requestAnimationFrame(watch);
+      // Reading the curtain's animations makes the browser bring the whole page's
+      // style up to date, so it isn't done every frame while the gate waits (the
+      // curtain can't start then): only once the visitor has entered.
+      const gate = container.closest(".hero-intro")?.querySelector(".intro-gate");
+      if (gate?.hasAttribute("data-waiting")) {
+        const observer = new MutationObserver(() => {
+          if (gate.hasAttribute("data-waiting")) return;
+          observer.disconnect();
+          gateWatch = null;
+          watching = requestAnimationFrame(watch);
+        });
+        observer.observe(gate, { attributes: true, attributeFilter: ["data-waiting"] });
+        gateWatch = observer;
+      } else watching = requestAnimationFrame(watch);
     }
     const resize = new ResizeObserver(() => {
       const r = container.getBoundingClientRect();
@@ -122,6 +136,7 @@ export function ParticleSphere({
     window.addEventListener("themechange", onThemeChange);
     return () => {
       cancelAnimationFrame(watching);
+      gateWatch?.disconnect();
       sphere.stop();
       resize.disconnect();
       observer.disconnect();
