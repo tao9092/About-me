@@ -18,6 +18,10 @@ import { EvidenceRail } from "@/components/evidence-rail";
 
 // Records decode one after another as they first come into view; later ones
 // share the last delay, so a record reached by scrolling decodes at once.
+// Static, refreshed in the background at most once a minute and at once when
+// the admin changes content, so a visit is served straight from the CDN.
+export const revalidate = 60;
+
 const stagger = (index: number) => Math.min(index, 3) * 90;
 
 export default async function Home() {

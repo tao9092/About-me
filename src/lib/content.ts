@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 
 export const entityTables = ["competitions","upcoming_competitions","certificates","education","projects","experiences","awards","skills","links"] as const;
 export type EntityTable = typeof entityTables[number];
@@ -26,7 +27,7 @@ export async function listContent(table: EntityTable, options: { admin?: boolean
     const rows = demos[table] ?? [];
     return rows.filter(row => !options.q || String(row.title_en).toLowerCase().includes(options.q.toLowerCase()));
   }
-  const supabase = await createClient();
+  const supabase = options.admin ? await createClient() : createPublicClient();
   let query = supabase.from(table).select("*").order("sort_order").order("updated_at", { ascending:false }).limit(options.limit ?? 50);
   if (!options.admin) query = query.eq("status","published").eq("visibility","public");
   else if (options.archived) query = query.eq("status","archived");
@@ -50,7 +51,7 @@ export async function listContent(table: EntityTable, options: { admin?: boolean
 export async function publicFileUrls(ids: string[]) {
   const urls = new Map<string, string>();
   if (!isSupabaseConfigured() || ids.length === 0) return urls;
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data, error } = await supabase.from("files").select("id,bucket,storage_path").in("id", ids).eq("status", "published").eq("visibility", "public");
   if (error) throw error;
   for (const file of data ?? []) {
@@ -61,7 +62,7 @@ export async function publicFileUrls(ids: string[]) {
 
 export async function siteProfile() {
   if (!isSupabaseConfigured()) return { name_en:"Your Name", name_zh:"你的名字", headline_en:"Builder, learner & creative technologist", headline_zh:"创作者、学习者与科技实践者", bio_en:"A personal space for the work, competitions, credentials and experiences that shaped me.", bio_zh:"记录塑造我的项目、比赛、证书与经历的个人空间。" };
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data } = await supabase.from("site_profile").select("*").single();
   return data;
 }
@@ -75,7 +76,7 @@ export async function publicStats() {
 
 export async function getPublicContent(table:EntityTable,slug:string){
   if(!isSupabaseConfigured())return(demos[table]??[]).find(row=>row.slug===slug)??null;
-  const supabase=await createClient();
+  const supabase=createPublicClient();
   const{data,error}=await supabase.from(table).select("*").eq("slug",slug).eq("status","published").eq("visibility","public").maybeSingle();
   if(error)throw new Error(error.message);
   if (!data && table === "projects") {

@@ -20,5 +20,7 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
-// Skips static assets, and the CSP report endpoint, which needs no session.
-export const config = { matcher: ["/((?!_next/static|_next/image|api/csp-report|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"] };
+// Only the admin uses the Supabase session (its pages and their server actions).
+// The public pages read as an anonymous visitor and are served static from the
+// CDN; running the proxy for them would send every visit through a function.
+export const config = { matcher: ["/admin/:path*"] };

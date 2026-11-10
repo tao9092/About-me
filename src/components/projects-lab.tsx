@@ -29,8 +29,7 @@ function spans(count: number) {
   return out;
 }
 
-export async function ProjectsLab({ searchParams }: { searchParams?: Promise<{ q?: string }> }) {
-  const q = (await searchParams)?.q;
+export async function ProjectsLab({ q }: { q?: string }) {
   const rows = await listContent("projects", { q, limit: 200 });
   const all = q ? await listContent("projects", { limit: 200 }) : rows;
   const locked = rows.filter((row) => row.visibility === "protected").length;

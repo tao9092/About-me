@@ -10,6 +10,10 @@ import { sanitizeRichText } from "@/lib/sanitize";
 import { uploadValidatedFile } from "@/lib/files";
 import { z } from "zod";
 
+// The public pages are static (cached on the CDN): any change to content
+// refreshes every one of them, since the home page and the Index list it too.
+const revalidatePublic = () => revalidatePath("/", "layout");
+
 type ActionState = {
   error?: string;
   success?: string;
@@ -136,10 +140,7 @@ export async function saveContentAction(
   }
   const collectionPath = `/admin/${entity.replaceAll("_", "-")}`;
   revalidatePath(collectionPath);
-  if (entity === "skills") {
-    revalidatePath("/");
-    revalidatePath("/skills");
-  }
+  revalidatePublic();
   redirect(collectionPath);
 }
 
@@ -183,10 +184,7 @@ export async function setStatusAction(formData: FormData) {
     }
   }
   revalidatePath("/admin", "layout");
-  if (entity === "skills") {
-    revalidatePath("/");
-    revalidatePath("/skills");
-  }
+  revalidatePublic();
 }
 
 export async function permanentlyDeleteAction(formData: FormData) {
@@ -202,5 +200,6 @@ export async function permanentlyDeleteAction(formData: FormData) {
     .eq("status", "archived");
   if (error) throw error;
   revalidatePath("/admin/archive");
+  revalidatePublic();
   redirect("/admin/archive");
 }

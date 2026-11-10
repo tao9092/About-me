@@ -48,6 +48,17 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // The list pages are static; a search on one (?q=) renders per request at
+  // /search/<section>, with the visitor's URL unchanged.
+  async rewrites() {
+    return {
+      beforeFiles: ["projects", "awards", "education", "links", "skills", "upcoming-competitions"].map((section) => ({
+        source: `/${section}`,
+        has: [{ type: "query" as const, key: "q" }],
+        destination: `/search/${section}`,
+      })),
+    };
+  },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
