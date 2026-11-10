@@ -495,7 +495,11 @@ export function SignalCosmos() {
       frame = onScreen ? requestAnimationFrame(draw) : 0;
     };
 
-    // The sky is only drawn while the section is on screen.
+    // The sky is only drawn while the section is on screen. The margin is
+    // negative because a section that merely touches the screen edge counts as
+    // intersecting, and on the home page this one starts exactly at the bottom
+    // of the first screen: drawing it there would give the hero, whose own
+    // animations need no main thread, a main-thread frame on every refresh.
     let onScreen = true;
     const visibility = new IntersectionObserver(
       ([entry]) => {
@@ -505,7 +509,7 @@ export function SignalCosmos() {
           frame = requestAnimationFrame(draw);
         }
       },
-      { rootMargin: "100px" },
+      { rootMargin: "-1px" },
     );
     visibility.observe(section);
 

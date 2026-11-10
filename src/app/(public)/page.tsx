@@ -109,7 +109,12 @@ export default async function Home() {
         </AurosHeroMotion>
         <a href="#signal" className="scroll-signal">
           <span>Scroll to signal</span>
-          <ArrowDown />
+          {/* The bounce is on this wrapper, not on the svg: Chrome cannot run an
+              svg's animation on the compositor, and that one alone made the
+              whole page redo a main-thread frame on every refresh. */}
+          <span className="scroll-signal-arrow" aria-hidden>
+            <ArrowDown />
+          </span>
         </a>
       </section>
 
