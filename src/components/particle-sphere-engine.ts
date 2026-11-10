@@ -2,6 +2,7 @@
 // window or document, so it runs in the sphere worker on an OffscreenCanvas, off
 // the main thread, or on the page's own canvas where workers can't draw. The page
 // hands in the size, pointer, theme and visibility, and the opening's start.
+import { createDotRenderer } from "@/components/particle-sphere-gl";
 
 type Particle = {
   x: number;
@@ -59,9 +60,12 @@ export type SphereControl = {
 const local = (at: number) => at - performance.timeOrigin;
 
 export function runSphere(surface: HTMLCanvasElement | OffscreenCanvas, options: SphereOptions): SphereControl {
-  const context = surface.getContext("2d") as CanvasRenderingContext2D | null;
+  // WebGL where it can (particle-sphere-gl.ts); the 2D canvas draws the same dots
+  // elsewhere.
+  const dots = createDotRenderer(surface);
+  const context = dots ? null : (surface.getContext("2d") as CanvasRenderingContext2D | null);
   const noop = () => {};
-  if (!context) return { resize: noop, setTheme: noop, setVisible: noop, setGatherStart: noop, pointer: noop, leave: noop, burst: noop, stop: noop };
+  if (!dots && !context) return { resize: noop, setTheme: noop, setVisible: noop, setGatherStart: noop, pointer: noop, leave: noop, burst: noop, stop: noop };
   const { density } = options;
   let points: Particle[] = [],
     raf = 0,
@@ -86,6 +90,7 @@ export function runSphere(surface: HTMLCanvasElement | OffscreenCanvas, options:
   const styles: string[] = [];
   const style = (key: number) =>
     (styles[key] ??= `rgba(${inks[key >> 8].join(",")},${(key & 255) / 255})`);
+  const channels = inks.map((ink) => ink.map((value) => value / 255));
   const coreCounts = new Int32Array(inks.length * 256);
   const glowCounts = new Int32Array(inks.length * 256);
   let px = new Float32Array(0),
@@ -109,6 +114,17 @@ export function runSphere(surface: HTMLCanvasElement | OffscreenCanvas, options:
     for (let key = 0; key < groups.length; key += 1) {
       const end = groups[key];
       if (end === start) continue;
+      if (dots) {
+        // The same groups in the same order, so overlapping dots blend as they did.
+        const [r, g, b] = channels[key >> 8],
+          a = (key & 255) / 255;
+        for (let at = start; at < end; at += 1) {
+          const index = order[at];
+          dots.add(px[index], py[index], pr[index] * grow, r, g, b, a);
+        }
+        start = end;
+        continue;
+      }
       context!.fillStyle = style(key);
       context!.beginPath();
       for (let at = start; at < end; at += 1) {
@@ -124,7 +140,7 @@ export function runSphere(surface: HTMLCanvasElement | OffscreenCanvas, options:
   function rebuild() {
     surface.width = Math.round(w * dpr);
     surface.height = Math.round(h * dpr);
-    context!.setTransform(dpr, 0, 0, dpr, 0, 0);
+    context?.setTransform(dpr, 0, 0, dpr, 0, 0);
     const radius = Math.min(w, h) * 0.4,
       activeDensity = lightTheme ? "high" : density,
       count = Math.min(
@@ -158,6 +174,7 @@ export function runSphere(surface: HTMLCanvasElement | OffscreenCanvas, options:
     coreKeys = new Int32Array(count);
     glowKeys = new Int32Array(count);
     order = new Int32Array(count);
+    dots?.reserve(count * 2); // a core and at most one halo each
     if (gathering) {
       const reach = Math.hypot(w, h) * 0.75;
       for (const p of points) {
@@ -167,7 +184,10 @@ export function runSphere(surface: HTMLCanvasElement | OffscreenCanvas, options:
         p.y = h / 2 + Math.sin(angle) * distance;
         p.energy = 0.6 + Math.random() * 0.4;
       }
-      context!.clearRect(0, 0, w, h);
+      if (dots) {
+        dots.begin();
+        dots.draw(dpr);
+      } else context!.clearRect(0, 0, w, h);
       return;
     }
     paint(true);
@@ -186,7 +206,8 @@ export function runSphere(surface: HTMLCanvasElement | OffscreenCanvas, options:
     return 0.0025 + 0.0145 * eased;
   }
   function paint(still = false) {
-    context!.clearRect(0, 0, w, h);
+    if (dots) dots.begin();
+    else context!.clearRect(0, 0, w, h);
     const cx = w / 2,
       cy = h / 2,
       unit = Math.min(w, h),
@@ -255,6 +276,7 @@ export function runSphere(surface: HTMLCanvasElement | OffscreenCanvas, options:
     }
     fillGroups(coreKeys, coreCounts, 1);
     fillGroups(glowKeys, glowCounts, 4);
+    dots?.draw(dpr);
   }
   function loop(t: number) {
     time = t;
