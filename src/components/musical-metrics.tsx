@@ -51,6 +51,8 @@ export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
   const [isDragging, setIsDragging] = useState(false);
   // Restarts the carousel's animation after it has come to rest.
   const wakeRef = useRef<() => void>(() => undefined);
+  // The ring of cards: "is-moving" while it turns (fixes.css, "Carousel cards").
+  const ring = useRef<HTMLDivElement>(null);
 
   // The carousel animates only while it moves: a drag, a throw coasting out, or
   // a snap to the nearest card. At rest it stops asking for frames, and a card's
@@ -60,6 +62,7 @@ export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
       "(prefers-reduced-motion: reduce)",
     ).matches;
     let running = false;
+    let settle = 0;
     let lastSpread = 0;
     const lastPositions: number[] = [];
 
@@ -123,9 +126,16 @@ export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
         const saturation = 1 - Math.min(distance, 2) * 0.09;
         const opacity = 1 - Math.min(distance, 2.35) * 0.22;
 
-        card.style.transform = `translateX(${position * spread}%) translateY(${drop}px) translateZ(${-depth}px) rotateY(${tilt}deg) scale(${scale})`;
-        card.style.zIndex = String(10 - Math.round(distance * 2));
-        card.style.filter = `blur(${blur}px) brightness(${brightness}) saturate(${saturation})`;
+        // The card's place on the ring is its slot's; the card keeps its look.
+        const slot = card.parentElement as HTMLElement;
+        slot.style.transform = `translateX(${position * spread}%) translateY(${drop}px) translateZ(${-depth}px) rotateY(${tilt}deg) scale(${scale})`;
+        slot.style.zIndex = String(10 - Math.round(distance * 2));
+        // The front card's filter (blur 0, brightness 1, saturate 1) does nothing:
+        // "none" is the same picture without the work.
+        card.style.filter =
+          distance === 0
+            ? "none"
+            : `blur(${blur}px) brightness(${brightness}) saturate(${saturation})`;
         card.style.opacity = String(Math.max(opacity, 0.38));
       });
       lastSpread = spread;
@@ -136,6 +146,12 @@ export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
         velocity.current === 0;
       if (resting) {
         running = false;
+        // The cards stop being layers a moment after the ring settles, so a
+        // swipe that follows soon after doesn't have to make them anew.
+        settle = window.setTimeout(
+          () => ring.current?.classList.remove("is-moving"),
+          1500,
+        );
         return;
       }
       animationFrame.current = requestAnimationFrame(animate);
@@ -143,6 +159,8 @@ export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
     const wake = () => {
       if (running) return;
       running = true;
+      window.clearTimeout(settle);
+      ring.current?.classList.add("is-moving");
       animationFrame.current = requestAnimationFrame(animate);
     };
     wakeRef.current = wake;
@@ -150,6 +168,7 @@ export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
     window.addEventListener("resize", wake);
     return () => {
       running = false;
+      window.clearTimeout(settle);
       window.removeEventListener("resize", wake);
       if (animationFrame.current) cancelAnimationFrame(animationFrame.current);
       if (waveTimer.current) clearTimeout(waveTimer.current);
@@ -319,7 +338,7 @@ export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
           <i />
           <i />
         </div>
-        <div className="metric-carousel">
+        <div className="metric-carousel" ref={ring}>
           {metrics.map(({ label, value, href }, index) => {
             const Icon = icons[index];
             const isSelected = selectedIndex === index;
@@ -328,50 +347,52 @@ export function MusicalMetrics({ metrics }: { metrics: Metric[] }) {
               (selectedIndex - 1 + metrics.length) % metrics.length;
             const isNext = index === (selectedIndex + 1) % metrics.length;
             return (
-              <Link
-                className={`carousel-card ${
-                  isSelected ? "carousel-card-selected" : ""
-                } ${isPrevious ? "carousel-card-previous" : ""} ${
-                  isNext ? "carousel-card-next" : ""
-                } ${waveIndex === index ? "signal-wave-active" : ""}`}
-                href={href}
-                key={label}
-                ref={(element) => {
-                  cards.current[index] = element;
-                }}
-                draggable={false}
-                aria-label={`${label}, ${value}`}
-                aria-current={isSelected ? "true" : undefined}
-                onDragStart={(event) => event.preventDefault()}
-                onClick={(event) => {
-                  if (moved.current) {
-                    event.preventDefault();
-                    moved.current = false;
-                    return;
-                  }
-                  playCardTone(index);
-                  addRipple(event, index);
-                }}
-              >
-                <div className="carousel-card-top">
-                  <Icon />
-                  <span>0{index + 1}</span>
-                </div>
-                <strong>{String(value).padStart(2, "0")}</strong>
-                <div className="carousel-card-footer">
-                  <p>{label}</p>
-                  <span className="signal-wave" aria-hidden>
-                    <i />
-                    <i />
-                    <i />
-                    <i />
-                    <i />
-                    <i />
-                    <i />
-                  </span>
-                </div>
-                <span className="central-scan" aria-hidden />
-              </Link>
+              <div className="carousel-slot" key={label}>
+                <Link
+                  className={`carousel-card ${
+                    isSelected ? "carousel-card-selected" : ""
+                  } ${isPrevious ? "carousel-card-previous" : ""} ${
+                    isNext ? "carousel-card-next" : ""
+                  } ${waveIndex === index ? "signal-wave-active" : ""}`}
+                  href={href}
+                  ref={(element) => {
+                    cards.current[index] = element;
+                  }}
+                  draggable={false}
+                  aria-label={`${label}, ${value}`}
+                  aria-current={isSelected ? "true" : undefined}
+                  onDragStart={(event) => event.preventDefault()}
+                  onClick={(event) => {
+                    if (moved.current) {
+                      event.preventDefault();
+                      moved.current = false;
+                      return;
+                    }
+                    playCardTone(index);
+                    addRipple(event, index);
+                  }}
+                >
+                  <span className="carousel-card-sheen" aria-hidden />
+                  <div className="carousel-card-top">
+                    <Icon />
+                    <span>0{index + 1}</span>
+                  </div>
+                  <strong>{String(value).padStart(2, "0")}</strong>
+                  <div className="carousel-card-footer">
+                    <p>{label}</p>
+                    <span className="signal-wave" aria-hidden>
+                      <i />
+                      <i />
+                      <i />
+                      <i />
+                      <i />
+                      <i />
+                      <i />
+                    </span>
+                  </div>
+                  <span className="central-scan" aria-hidden />
+                </Link>
+              </div>
             );
           })}
         </div>

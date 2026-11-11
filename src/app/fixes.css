@@ -184,6 +184,41 @@ html:not(.dark) .metric-card:focus-visible { background:#dce6ea;color:var(--mist
 .signal-wave i:nth-child(4) { height:18px; }
 .carousel-card-selected:hover .signal-wave,.signal-wave-active .signal-wave { color:var(--phosphor);opacity:1;filter:drop-shadow(0 0 5px rgba(141,255,240,.7)); }
 .signal-wave-active .signal-wave i,.carousel-card-selected:hover .signal-wave i { animation:signal-wave-beat .44s ease-in-out infinite alternate; }
+/* Carousel cards (MusicalMetrics): each card sits in a slot that carries its place
+   on the ring (the 3D transform and z-index), so the card itself need not be a
+   layer of its own. At rest its filter (the blur and dimming of the cards to the
+   sides) is then painted once with it, where on a layer of its own the
+   compositor redrew it every frame the page moved; while the ring turns, and
+   for a moment after ("is-moving"), the cards are layers again and the
+   compositor filters them. */
+.carousel-slot { position:absolute;inset:0;backface-visibility:hidden;will-change:transform; }
+.carousel-slot > .carousel-card { transform:none;will-change:auto; }
+.metric-carousel.is-moving .carousel-card { will-change:filter,opacity; }
+/* The sheen that sweeps across a card as it comes to the front (and back as it
+   leaves): in the dark theme it was the top background layer of the card's
+   :before, its position eased from -100% to 100% over .75s, which repainted the
+   card every frame. It is its own element now, slid by transform: four cards
+   wide, carrying the same two-card-wide tile (50%), from translateX(50%) to none,
+   so the tile lies where the background put it at every moment (the image of
+   width 2W at p% sits at -p·W, repeating every 2W). The :before keeps the grid,
+   where it was. The light theme's sheen holds still (its shorthand puts every
+   layer at 0 0) and is left on the :before. */
+.carousel-card-sheen { display:none; }
+html.dark .carousel-card:before,
+html.dark .carousel-card-selected:before,
+html.dark .carousel-card-active:before {
+  background:linear-gradient(rgba(120,231,218,.1) 1px,transparent 1px),linear-gradient(90deg,rgba(120,231,218,.1) 1px,transparent 1px);
+  background-size:38px 38px,38px 38px;
+  background-position:0 0,0 0;
+  transition:opacity .3s;
+}
+html.dark .carousel-card-sheen {
+  display:block;position:absolute;top:0;bottom:0;left:-300%;width:400%;pointer-events:none;
+  background:linear-gradient(115deg,transparent 34%,rgba(175,255,247,.09) 49%,transparent 64%) 0 0/50% 100%;
+  opacity:.6;transform:translateX(50%);transition:transform .75s,opacity .3s;
+}
+html.dark .carousel-card-selected .carousel-card-sheen,
+html.dark .carousel-card-active .carousel-card-sheen { opacity:1;transform:none; }
 .signal-wave i:nth-child(2) { animation-delay:-.31s!important; }
 .signal-wave i:nth-child(3) { animation-delay:-.17s!important; }
 .signal-wave i:nth-child(4) { animation-delay:-.39s!important; }
