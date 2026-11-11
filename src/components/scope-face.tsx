@@ -28,6 +28,29 @@ export function angleFor(slug: string) {
 /** The target, with whatever is drawn on it (shots, a lock) passed as children. */
 export function ScopeFace({ id, children }: { id: string; children?: ReactNode }) {
   return (
+    <div className="rec-face-wrap">
+      {/* The outer bezel turns slowly: a tick every 5°, a long one every 30°.
+          It is its own layer under the face, turned as a whole: the ticks lie
+          outside the lens, where nothing else on the face is drawn, so the order
+          is unchanged, and the compositor turns it without repainting the face. */}
+      <div className="rec-bezel-face" aria-hidden>
+        <svg viewBox="0 0 1000 1000">
+          <g className="rec-bezel">
+            {Array.from({ length: 72 }, (_, k) => {
+              const long = k % 6 === 0;
+              const [from, to] = [polar(k * 5, R + 46), polar(k * 5, R + (long ? 76 : 60))];
+              return <line key={k} x1={from.x} y1={from.y} x2={to.x} y2={to.y} className={long ? "is-long" : undefined} />;
+            })}
+          </g>
+        </svg>
+      </div>
+      <ScopeLens id={id}>{children}</ScopeLens>
+    </div>
+  );
+}
+
+function ScopeLens({ id, children }: { id: string; children?: ReactNode }) {
+  return (
     <svg viewBox="0 0 1000 1000" role="presentation" className="rec-face">
       <defs>
         <radialGradient id={id} cx="50%" cy="50%" r="50%">
@@ -37,14 +60,6 @@ export function ScopeFace({ id, children }: { id: string; children?: ReactNode }
         </radialGradient>
       </defs>
       <circle cx={C} cy={C} r={R + 40} fill={`url(#${id})`} />
-      {/* The outer bezel turns slowly: a tick every 5°, a long one every 30°. */}
-      <g className="rec-bezel">
-        {Array.from({ length: 72 }, (_, k) => {
-          const long = k % 6 === 0;
-          const [from, to] = [polar(k * 5, R + 46), polar(k * 5, R + (long ? 76 : 60))];
-          return <line key={k} x1={from.x} y1={from.y} x2={to.x} y2={to.y} className={long ? "is-long" : undefined} />;
-        })}
-      </g>
       {RINGS.map((ring) => (
         <g key={ring}>
           <circle cx={C} cy={C} r={out(ring)} className={ring === 1 ? "rec-ring is-edge" : "rec-ring"} />

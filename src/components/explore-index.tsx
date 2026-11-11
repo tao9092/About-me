@@ -59,11 +59,19 @@ export async function ExploreIndex() {
           </span>
         </div>
         <div className="hz-hole" aria-hidden>
-          <i className="hz-disk-back" />
+          <i className="hz-disk-back">
+            <i className="hz-swirl">
+              <i />
+            </i>
+          </i>
           <i className="hz-glow" />
           <i className="hz-shadow" />
           <i className="hz-ring" />
-          <i className="hz-disk-front" />
+          <i className="hz-disk-front">
+            <i className="hz-swirl">
+              <i />
+            </i>
+          </i>
         </div>
         <h1>Index</h1>
         <p>Everything in the hub, drawn toward one point. Search it, or let something pull you in.</p>
