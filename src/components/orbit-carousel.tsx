@@ -55,42 +55,136 @@ export function OrbitCarousel({ items }: { items: Credential[] }) {
   const { open, flash, busy } = useBurst();
   const n = items.length;
 
+  // Each card's look round the ring is a fixed function of its angle, so it is
+  // laid down once as a keyframed loop of a full turn. While the ring drifts at
+  // its steady pace those loops play on the compositor and the page's thread
+  // does nothing per frame; while it is dragged, slowed under the pointer or
+  // brought round to a card, each frame sets the loops' time to the spin
+  // instead. Which card is in front, and the stacking order, only change when
+  // two cards pass at equal depth or one crosses the planet's plane, so those
+  // moments are worked out ahead and the order is set only then.
+  const wake = useRef<() => void>(() => {});
+
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const m = motion.current;
     if (reduce) m.velocity = 0;
-    let frame = 0;
-    let last = 0;
-    let visible = true;
-    let shown = -1;
-    const place = () => {
-      const rx = Math.min(stage.clientWidth * 0.42, 560);
-      const ry = Math.min(stage.clientHeight * 0.17, 92);
-      let best = 0;
-      let bestCos = -2;
-      for (let i = 0; i < n; i += 1) {
-        const card = cardRefs.current[i];
-        if (!card) continue;
-        const theta = m.spin + (i * TAU) / n;
+    const cards = cardRefs.current.slice(0, n);
+    const TURN = (TAU / DRIFT) * 1000; // ms for one turn at the drifting pace
+    const angle = (i: number) => (i * TAU) / n;
+    const wrap = (value: number, span: number) => ((value % span) + span) % span;
+    let rx = 0;
+    let ry = 0;
+    const measure = () => {
+      rx = Math.min(stage.clientWidth * 0.42, 560);
+      ry = Math.min(stage.clientHeight * 0.17, 92);
+    };
+    const STEPS = 360; // a keyframe a degree: within a hundredth of a pixel of the true curve
+    const keyframes = (): Keyframe[] =>
+      Array.from({ length: STEPS + 1 }, (_, k) => {
+        const theta = (k / STEPS) * TAU;
         const s = Math.sin(theta);
         const c = Math.cos(theta);
         const depth = (c + 1) / 2;
-        card.style.transform = `translate(-50%,-50%) translate3d(${(s * rx).toFixed(1)}px,${(c * ry).toFixed(1)}px,0) scale(${(0.48 + 0.52 * depth).toFixed(3)}) rotateY(${(-s * 32).toFixed(1)}deg)`;
-        card.style.zIndex = String(c > 0 ? 200 + Math.round(c * 100) : Math.round(depth * 100));
-        card.style.opacity = (0.22 + 0.78 * depth).toFixed(3);
-        card.style.filter = `brightness(${(0.4 + 0.6 * depth).toFixed(3)})`;
-        if (c > bestCos) [bestCos, best] = [c, i];
+        return {
+          offset: k / STEPS,
+          transform: `translate(-50%,-50%) translate3d(${(s * rx).toFixed(2)}px,${(c * ry).toFixed(2)}px,0) scale(${(0.48 + 0.52 * depth).toFixed(4)}) rotateY(${(-s * 32).toFixed(2)}deg)`,
+          opacity: (0.22 + 0.78 * depth).toFixed(4),
+          filter: `brightness(${(0.4 + 0.6 * depth).toFixed(4)})`,
+        };
+      });
+    measure();
+    const frames = keyframes();
+    const loops = cards.map((card) => card?.animate(frames, { duration: TURN, iterations: Infinity, easing: "linear", fill: "both" }) ?? null);
+    loops.forEach((loop) => loop?.pause());
+    const lead = loops.find((loop) => loop !== null) ?? null;
+
+    let playing: { spin: number; time: number } | null = null;
+    const spinNow = () => (playing && lead ? playing.spin + ((Number(lead.currentTime) - playing.time) / TURN) * TAU : m.spin);
+    const setSpin = (spin: number) => {
+      loops.forEach((loop, i) => {
+        if (loop) loop.currentTime = (wrap(spin + angle(i), TAU) / TAU) * TURN;
+      });
+    };
+
+    // Stacking: each card's depth key puts it in front of the planet (z-index
+    // 150) on the near half of the ring and behind it on the far half, the
+    // later card on top at an equal key. Only the order matters, so each card
+    // gets its rank in it, which holds still while the keys themselves creep.
+    const layout = (spin: number) => {
+      const depths = cards.map((_, i) => Math.cos(spin + angle(i)));
+      const keys = depths.map((c) => (c > 0 ? 200 + Math.round(c * 100) : Math.round(((c + 1) / 2) * 100)));
+      const order = keys.map((_, i) => i).sort((a, b) => keys[a] - keys[b] || a - b);
+      const best = depths.reduce((top, c, i) => (c > depths[top] ? i : top), 0);
+      return { keys, order, best, id: `${order.map((i) => (keys[i] > 150 ? `+${i}` : i)).join()}|${best}` };
+    };
+    let shown = -1;
+    const stack = (spin: number) => {
+      const { keys, order, best } = layout(spin);
+      let near = 0;
+      let far = 0;
+      for (const i of order) {
+        const z = String(keys[i] > 150 ? 200 + near++ : far++);
+        const card = cards[i];
+        if (card && card.style.zIndex !== z) card.style.zIndex = z;
       }
       if (best !== shown) {
         shown = best;
         setFront(best);
       }
     };
+    // How much further the ring turns before the stacking or the front card
+    // next changes: stepped under a frame's drift at a time, then pinned by halving.
+    const untilRestack = (spin: number) => {
+      const STEP = 0.0015;
+      const now = layout(spin).id;
+      for (let ahead = STEP; ahead < TAU; ahead += STEP) {
+        if (layout(spin + ahead).id === now) continue;
+        let lo = ahead - STEP;
+        let hi = ahead;
+        while (hi - lo > 1e-6) {
+          const mid = (lo + hi) / 2;
+          if (layout(spin + mid).id === now) lo = mid;
+          else hi = mid;
+        }
+        return hi;
+      }
+      return TAU;
+    };
+
+    let frame = 0;
+    let timer = 0;
+    let last = 0;
+    let visible = true;
+    const restackLater = () => {
+      const spin = spinNow();
+      stack(spin);
+      timer = window.setTimeout(restackLater, (untilRestack(spin) / DRIFT) * 1000 + 1);
+    };
+    const drift = () => {
+      if (!lead) return;
+      setSpin(m.spin);
+      playing = { spin: m.spin, time: Number(lead.currentTime) };
+      loops.forEach((loop) => loop?.play());
+      restackLater();
+    };
+    const hold = () => {
+      if (playing) {
+        m.spin = spinNow();
+        loops.forEach((loop) => loop?.pause());
+        playing = null;
+        setSpin(m.spin);
+      }
+      window.clearTimeout(timer);
+      timer = 0;
+    };
     const tick = (now: number) => {
+      frame = 0;
       const dt = Math.min(0.05, (now - (last || now)) / 1000);
       last = now;
+      const rest = m.hovering || reduce ? 0 : DRIFT;
       if (m.target !== null) {
         const step = (m.target - m.spin) * Math.min(1, dt * 7);
         m.spin += step;
@@ -100,33 +194,62 @@ export function OrbitCarousel({ items }: { items: Credential[] }) {
           m.velocity = 0;
         }
       } else if (!m.dragging) {
-        const rest = m.hovering || reduce ? 0 : DRIFT;
         m.velocity += (rest - m.velocity) * Math.min(1, dt * 1.6);
         m.spin += m.velocity * dt;
       }
-      place();
-      frame = visible ? requestAnimationFrame(tick) : 0;
+      setSpin(m.spin);
+      stack(m.spin);
+      // Settled at its resting pace (what is left of the approach would move a
+      // card by under a hundredth of a pixel): hand the drift to the
+      // compositor, or stand still.
+      if (m.target === null && !m.dragging && Math.abs(rest - m.velocity) < 1e-4) {
+        m.velocity = rest;
+        last = 0;
+        if (rest > 0) drift();
+        return;
+      }
+      if (visible) frame = requestAnimationFrame(tick);
     };
-    place();
-    frame = requestAnimationFrame(tick);
+    wake.current = () => {
+      hold();
+      if (!visible || frame) return;
+      last = 0;
+      frame = requestAnimationFrame(tick);
+    };
+    setSpin(m.spin);
+    stack(m.spin);
+    wake.current();
+
     const sight = new IntersectionObserver(([entry]) => {
       visible = entry.isIntersecting;
-      if (visible && !frame) {
-        last = 0;
-        frame = requestAnimationFrame(tick);
+      if (visible) wake.current();
+      else {
+        cancelAnimationFrame(frame);
+        frame = 0;
+        hold();
       }
     });
     sight.observe(stage);
-    const resize = new ResizeObserver(place);
+    const resize = new ResizeObserver(() => {
+      const at = spinNow();
+      measure();
+      const next = keyframes();
+      loops.forEach((loop) => (loop?.effect as KeyframeEffect | null)?.setKeyframes(next));
+      if (!playing) setSpin(at);
+    });
     resize.observe(stage);
     return () => {
       cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
       sight.disconnect();
       resize.disconnect();
+      loops.forEach((loop) => loop?.cancel());
+      wake.current = () => {};
     };
   }, [n]);
 
   const down = (event: PointerEvent<HTMLDivElement>) => {
+    wake.current();
     const m = motion.current;
     Object.assign(m, { dragging: true, moved: 0, startX: event.clientX, startSpin: m.spin, lastX: event.clientX, lastT: performance.now(), target: null });
   };
@@ -147,6 +270,7 @@ export function OrbitCarousel({ items }: { items: Credential[] }) {
     const m = motion.current;
     m.dragging = false;
     m.velocity = Math.max(-3, Math.min(3, m.velocity));
+    wake.current();
   };
   const choose = (event: MouseEvent<HTMLAnchorElement>, index: number) => {
     event.preventDefault();
@@ -156,6 +280,7 @@ export function OrbitCarousel({ items }: { items: Credential[] }) {
       open(items[index].slug, event.currentTarget.getBoundingClientRect());
       return;
     }
+    wake.current();
     // Round to the front by the shorter way.
     const goal = -(index * TAU) / n;
     const turns = Math.round((m.spin - goal) / TAU);
@@ -172,7 +297,10 @@ export function OrbitCarousel({ items }: { items: Credential[] }) {
         onPointerMove={move}
         onPointerUp={up}
         onPointerCancel={up}
-        onPointerEnter={() => (motion.current.hovering = true)}
+        onPointerEnter={() => {
+          motion.current.hovering = true;
+          wake.current();
+        }}
         onPointerLeave={() => {
           motion.current.hovering = false;
           up();
