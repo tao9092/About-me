@@ -24,6 +24,29 @@ export const revalidate = 60;
 
 const stagger = (index: number) => Math.min(index, 3) * 90;
 
+/** A hero ring as the opening draws it (fixes.css, "The rings are drawn"): each
+ * half of the ring, behind a turning edge, over a copy of the ring that holds still. */
+function RingDraw({ ring }: { ring: "ring-one" | "ring-two" }) {
+  const half = (side: "is-right" | "is-left") => (
+    <i className={`ring-draw-sweep ${side}`}>
+      <i className="ring-draw-counter">
+        <i className="ring-draw-half">
+          <i className="ring-draw-frame">
+            <span className={`orb-ring ${ring} ring-draw-line`} />
+            <span className={`orb-ring ${ring} ring-draw-line is-fading`} />
+          </i>
+        </i>
+      </i>
+    </i>
+  );
+  return (
+    <div className={`ring-draw ${ring}-draw`} aria-hidden>
+      {half("is-right")}
+      {half("is-left")}
+    </div>
+  );
+}
+
 export default async function Home() {
   const [profile, stats, competitions, projects, skills] =
     await Promise.all([
@@ -95,7 +118,9 @@ export default async function Home() {
           <div className="hero-orb-stage">
             <ParticleSphere density="high" assemble />
             <div className="orb-ring ring-one" />
+            <RingDraw ring="ring-one" />
             <div className="orb-ring ring-two" />
+            <RingDraw ring="ring-two" />
             <div className="orb-label label-a">
               <span>01</span> Projects
             </div>
